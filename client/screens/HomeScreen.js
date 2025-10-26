@@ -11,6 +11,7 @@ const Tab = createBottomTabNavigator();
 export default function HomeScreen() {
   return (
     <Tab.Navigator
+      initialRouteName='Maps'
       screenOptions={{
         headerShown: false,
         tabBarStyle: { backgroundColor: '#1a1a1a' },
