@@ -31,8 +31,11 @@ export default function LoginScreen({ navigation }) {
             <TouchableOpacity style={styles.altButton} onPress={() => navigation.navigate('Signup')}>
                 <Text style={styles.signupText}>Don't have an account? Sign Up</Text>
             </TouchableOpacity>
-            <TouchableOpacity style={styles.altButton} onPress={() => {/* Handle login logic */}}>
-                <Text style={styles.buttonText}>Login</Text>
+            <TouchableOpacity
+                style={styles.altButton}
+                onPress={() => navigation.navigate('Home')}
+            >
+                <Text style={styles.loginButtonText}>Login</Text>
             </TouchableOpacity>
             <TouchableOpacity style={styles.altButton} onPress={() => {/* Handle Google login */}}>
                 <Text style={styles.altButtonText}>Login with Google</Text>
