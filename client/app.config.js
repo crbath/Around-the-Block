@@ -1,4 +1,6 @@
-{
+import 'dotenv/config';
+
+export default {
   "expo": {
     "name": "client",
     "slug": "client",
@@ -11,12 +13,12 @@
     "ios": {
       "supportsTablet": true,
       "config": {
-        "googleMapsApiKey": "INSERT YOUR API KEY HERE! DON'T PUSH"
+        "googleMapsApiKey": process.env.GOOGLE_MAPS_API_KEY
       }
     },
     "android": {
       "config": {
-        "googleMapsApiKey": "INSERT YOUR API KEY HERE! DON'T PUSH"
+        "googleMapsApiKey": process.env.GOOGLE_MAPS_API_KEY
       },
       "adaptiveIcon": {
         "backgroundColor": "#E6F4FE",
