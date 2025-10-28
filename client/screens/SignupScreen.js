@@ -1,11 +1,29 @@
 import React, { useState } from 'react';
 import { View, TextInput, TouchableOpacity, StyleSheet, Text, Image } from 'react-native';
+import api from '../api/api';
 
 export default function SignupScreen({ navigation }) {
     const [username, setUsername] = useState('');
     const [password, setPassword] = useState('');
     const [confirmPassword, setConfirmPassword] = useState('');
     const [birthday, setBirthday] = useState('');
+    const [message, setMessage] = useState('');
+
+    const handleSignup = async () => {
+      if (password !== confirmPassword) {
+        setMessage('Passwords do not match');
+        return;
+      }
+
+      try {
+        const response = await api.post('/signup', { username, password, birthday });
+        setMessage(response.data.message);
+        navigation.navigate('Login');
+      } catch (error) {
+        setMessage(error.response?.data?.message || 'Signup failed');
+        console.error(error);
+      }
+    };
 
     return (
         <View style={styles.container}>
@@ -47,9 +65,11 @@ export default function SignupScreen({ navigation }) {
                     onChangeText={setBirthday}
                 />
             </View>
-            <TouchableOpacity style={styles.createButton} onPress={() => {/* Handle signup logic */}}>
+            <TouchableOpacity style={styles.createButton} onPress={handleSignup}>
                 <Text style={styles.createButtonText}>Create Account</Text>
             </TouchableOpacity>
+
+            {message ? <Text style={{ color: 'white', marginTop: 10 }}>{message}</Text> : null}
 
             <TouchableOpacity onPress={() => navigation.navigate('Login')}>
                 <Text style={styles.link}>Back to Log In</Text>
