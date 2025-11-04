@@ -1,12 +1,30 @@
 import React from 'react';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
+import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import ActivitiesScreen from './ActivitiesScreen';
 import FeedScreen from './FeedScreen';
 import MapsScreen from './MapsScreen';
 import SelectBarsScreen from './SelectBarsScreen';
 import ProfileScreen from './ProfileScreen';
+import HeadsUpGameScreen from './HeadsUpGameScreen';
+import TriviaScreen from './TriviaScreen';
+import TalkingBenMinigameScreen from './TalkingBenMinigameScreen';
+import BeerScreen from './BeerScreen';
 
 const Tab = createBottomTabNavigator();
+const ActivitiesStack = createNativeStackNavigator();
+
+function ActivitiesStackNavigator() {
+  return (
+    <ActivitiesStack.Navigator screenOptions={{ headerShown: false }}>
+      <ActivitiesStack.Screen name="ActivitiesMain" component={ActivitiesScreen} />
+      <ActivitiesStack.Screen name="HeadsUpGame" component={HeadsUpGameScreen} />
+      <ActivitiesStack.Screen name="Trivia" component={TriviaScreen} />
+      <ActivitiesStack.Screen name="TalkingBenMinigame" component={TalkingBenMinigameScreen} />
+      <ActivitiesStack.Screen name="Beer" component={BeerScreen} />
+    </ActivitiesStack.Navigator>
+  );
+}
 
 export default function HomeScreen() {
   return (
@@ -19,7 +37,7 @@ export default function HomeScreen() {
         tabBarInactiveTintColor: '#fff',
       }}
     >
-      <Tab.Screen name="Activities" component={ActivitiesScreen} />
+      <Tab.Screen name="Activities" component={ActivitiesStackNavigator} />
       <Tab.Screen name="Feed" component={FeedScreen} />
       <Tab.Screen name="Maps" component={MapsScreen} />
       <Tab.Screen name="Select Bars" component={SelectBarsScreen} />
