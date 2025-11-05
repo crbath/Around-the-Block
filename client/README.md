@@ -64,25 +64,27 @@ Join our community of developers creating universal apps.
 6. Copy the connection string and replace <password> with your DB password
 - Should look like: mongodb+srv://<username>:<password>@cluster0.mongodb.net/aroundtheblock
 
-7. Open the file: around-the-block-backend/.env
+7. Go to Database and Network Access and add new user if you don't have one already
 
-8. Replace the values with your connection details
-MONGO_URI=mongodb+srv://aroundtheblock_user:myPassword@cluster0.mongodb.net/aroundtheblock
+8. Open the file: around-the-block-backend/.env
+
+9. Replace the values with your connection details
+MONGO_URI=mongodb+srv://<db_username>:<db_password>@around-the-block.kf8vskj.mongodb.net/?appName=around-the-block
 JWT_SECRET=your_shared_secret_key
 PORT=5000
 
-9. Edit the IP address in client/api/api.js to your machine's local IP address
+10. Edit the IP address in client/api/api.js to your machine's local IP address
 - const BASE_URL = "http://<your-local-IP>:5000";
 - Get local IP on Mac: System Preferences > Network > Select your connection > IP Address
 - Get local IP on Windows: Command Prompt > ipconfig > IPv4 Address
 
-10. Open a new terminal and navigate to the around-the-block-backend folder
+11. Open a new terminal and navigate to the around-the-block-backend folder
 
-11. Run node server.js to start the backend server
+12. Run node server.js to start the backend server
 - You should see "Server running on port 5000" in the terminal
 **You can test if the server is running properly by going to http://localhost:5000 to see a welcome message**
 **If it says access denied (error 403), make sure that the AirPlay Receiver is turned off in System Preferences > Sharing (Mac)**
 
-12. Open another terminal and navigate to the client folder
+13. Open another terminal and navigate to the client folder
 
-13. Run npx expo start to start the Expo development server
+14. Run npx expo start to start the Expo development server
