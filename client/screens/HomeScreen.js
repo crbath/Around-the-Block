@@ -3,6 +3,7 @@ import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import ActivitiesScreen from './ActivitiesScreen';
 import FeedScreen from './FeedScreen';
+import FriendsScreen from './FriendsScreen';
 import MapsScreen from './MapsScreen';
 import SelectBarsScreen from './SelectBarsScreen';
 import ProfileScreen from './ProfileScreen';
@@ -13,6 +14,7 @@ import BeerScreen from './BeerScreen';
 
 const Tab = createBottomTabNavigator();
 const ActivitiesStack = createNativeStackNavigator();
+const FeedStack = createNativeStackNavigator();
 
 function ActivitiesStackNavigator() {
   return (
@@ -23,6 +25,15 @@ function ActivitiesStackNavigator() {
       <ActivitiesStack.Screen name="TalkingBenMinigame" component={TalkingBenMinigameScreen} />
       <ActivitiesStack.Screen name="Beer" component={BeerScreen} />
     </ActivitiesStack.Navigator>
+  );
+}
+
+function FeedStackNavigator() {
+  return (
+    <FeedStack.Navigator screenOptions={{ headerShown: false }}>
+      <FeedStack.Screen name="FeedMain" component={FeedScreen} />
+      <FeedStack.Screen name="Friends" component={FriendsScreen} />
+    </FeedStack.Navigator>
   );
 }
 
@@ -38,7 +49,7 @@ export default function HomeScreen() {
       }}
     >
       <Tab.Screen name="Activities" component={ActivitiesStackNavigator} />
-      <Tab.Screen name="Feed" component={FeedScreen} />
+      <Tab.Screen name="Feed" component={FeedStackNavigator} />
       <Tab.Screen name="Maps" component={MapsScreen} />
       <Tab.Screen name="Select Bars" component={SelectBarsScreen} />
       <Tab.Screen name="Profile" component={ProfileScreen} />
