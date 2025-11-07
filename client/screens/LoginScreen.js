@@ -12,8 +12,10 @@ export default function LoginScreen({ navigation }) {
     try {
       const response = await api.post('/login', { username, password });
       const token = response.data.token;
+       console.log(JSON.stringify(response.data))
 
       await AsyncStorage.setItem('token', token);
+      await AsyncStorage.setItem('user', JSON.stringify(username))
       setMessage('Login successful');
 
       // Navigate to Home (make sure this route exists)

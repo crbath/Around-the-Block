@@ -62,7 +62,11 @@ export default function ProfileScreen() {
 
   return (
     // <ScrollView contentContainerStyle={styles.container}>
+    <View style={[styles.container, {paddingTop:60}]}>
+     <Text style={[styles.text, {paddingBottom:20, textAlign:'center'}]}>Your Profile</Text>
+
     <View style={styles.container}>
+  
       <View style={styles.header}>
         <TouchableOpacity onPress={handleUpload}>
           {profile.profilePicture?
@@ -91,6 +95,7 @@ export default function ProfileScreen() {
         {/* grid of images -- need to figure out how we're storing images */}
       </ScrollView>
     </View>
+    </View>
     // </ScrollView>
   );
 }
@@ -100,7 +105,6 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: '#0B0D17',
     padding: 20,
-    paddingTop: 100,
   },
   header: {
     flexDirection: 'row',
