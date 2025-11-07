@@ -41,8 +41,8 @@ export default function MapsScreen() {
         }}>
           <Marker
             coordinate={{latitude:location.latitude, longitude:location.longitude}}
-            title = {"Current Marker"}
-            description={"Current Location"}
+            title = {"Your Location"}
+            description={location.latitude + ", " + location.longitude}
             />
       </MapView>
       )}
