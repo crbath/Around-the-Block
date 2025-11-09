@@ -12,11 +12,17 @@ export default {
     "newArchEnabled": true,
     "ios": {
       "supportsTablet": true,
+      "infoPlist": {
+        "NSMicrophoneUsageDescription": "This app needs access to microphone for voice recording features in games and activities."
+      },
       "config": {
         "googleMapsApiKey": process.env.GOOGLE_MAPS_API_KEY
       }
     },
     "android": {
+      "permissions": [
+        "android.permission.RECORD_AUDIO"
+      ],
       "config": {
         "googleMapsApiKey": process.env.GOOGLE_MAPS_API_KEY
       },
