@@ -1,12 +1,132 @@
 import React, { useEffect, useState } from 'react';
-import { View, Text, StyleSheet, Alert } from 'react-native';
+import { View, Text, StyleSheet, Alert,Modal,TouchableWithoutFeedback, TouchableOpacity } from 'react-native';
 import MapView, {Marker} from 'react-native-maps';
+import api from '../api/api';
 import * as Location from 'expo-location'
+import axios from 'axios'
+import Slider from '@react-native-community/slider'
+import AsyncStorage from '@react-native-async-storage/async-storage';
 
 export default function MapsScreen() {
+  //user's location
   const [location, setLocation] = useState(null)
   const [errorMessage, setErrorMessage] = useState(null)
 
+  //bars from OSM
+  const [bars, setBars] = useState([])
+
+  const [selectedBar, setSelectedBar] = useState(null)
+  const [showModal, setShowModal] = useState(false)
+
+  //for fetching bar information
+  const [avgTime, setAvgTime] = useState(null)
+  const [loading, setLoading] = useState(false)
+
+  const fetchAverageTime = async(barId) => {
+    try {
+      setLoading(true)
+      // setAvgTime(null)
+
+      const res = await api.get(`/bartime/${barId}`)
+      setAvgTime(res.data.average)
+    }catch(err){
+      setAvgTime(null)
+    }finally{
+      setLoading(false)
+    }
+  }
+
+
+
+
+  //setting wait times
+  const [waitTime, setWaitTime] = useState(10)
+  
+  const submitWaitTime = async () =>{
+    if(!selectedBar) return;
+
+    try{
+      setLoading(true)
+      const token = await AsyncStorage.getItem('token')
+
+      const res = await api.post(
+        `/bartime`,
+        {
+          barId: selectedBar.id.toString(),
+          barName: selectedBar.name,
+          latitude: selectedBar.latitude,
+          longitude: selectedBar.longitude,
+          time: waitTime
+        },
+        {headers: {Authorization: `Bearer ${token}`}}
+      )
+      Alert.alert("Submitted line length!", res.data.message)
+      fetchAverageTime(selectedBar.id)
+    }catch(err){
+      console.log(err)
+      Alert.alert("Error", err.response?.data?.message || err.message)
+    }
+    finally{
+      setLoading(false)
+    }
+  }
+
+  const getWaitTimeLabel = (waitTime) =>{
+    if (waitTime >= 0 && waitTime <= 3) return "No wait"
+    if (waitTime >= 3 && waitTime <= 5) return "Short"
+    if (waitTime >= 5 && waitTime <= 8) return "Slightly long"
+    if (waitTime >= 8 && waitTime <= 10) return "Extremly long"
+
+
+
+  }
+
+  //using OSM to fetch bars instead of googleplaces
+  useEffect(()=>{
+    if (!location) return;
+
+    const fetchBars = async () =>{
+      try {
+        const lat = location.latitude
+        const long = location.longitude
+        const delta = 0.05 
+
+        const overpassQuery = `
+        [out:json];
+        node
+        ["amenity"="bar"]
+        (${lat-delta},${long-delta},${lat+delta},${long+delta});
+        out;
+        `;
+
+        const response = await axios.post(
+          'https://overpass-api.de/api/interpreter',
+          overpassQuery,
+          {headers:
+            {'Content-Type': 'text/plain'}
+          }
+        )
+        //map each element
+        const nodes = response.data.elements.map (element => ({
+          id: element.id,
+          latitude: element.lat,
+          longitude: element.lon,
+          name: element.tags?.name || 'Unable to retrieve name'
+        }))
+        //save each bar
+        setBars(nodes)
+
+
+      }catch(err){
+        setErrorMessage("Error grabbing bars")
+      }
+
+
+    }
+    fetchBars()
+  },[location])
+
+  //Grab permission for location from user if not already granted
   useEffect(() =>{
     (async () => {
       let {status} = await Location.requestForegroundPermissionsAsync()
@@ -44,8 +164,71 @@ export default function MapsScreen() {
             title = {"Your Location"}
             description={location.latitude + ", " + location.longitude}
             />
+            {bars.map(bar => (
+              <Marker
+              key = {bar.id}
+              coordinate={{latitude: bar.latitude, longitude: bar.longitude}}
+              // title = {bar.name}
+              pinColor = "purple"
+              onPress = {() => {
+                setSelectedBar(bar); setShowModal(true);fetchAverageTime(bar.id)}}
+              />
+            ))}
       </MapView>
+      
       )}
+      <Modal
+        visible = {showModal}
+        transparent = {true}
+        animationType="fade"
+        onRequestClose={() => setShowModal(false)}>
+          <TouchableWithoutFeedback onPress={()=> setShowModal(false)}>
+        <View style ={styles.modalBackground}>
+          <View style = {styles.modalContainer}>
+
+            <View style={{flex:1, justifyContent:'flex-start', alignItems:'center'}}>
+            <Text style={styles.modalTitle}>{selectedBar?.name}</Text>
+            <Text style={[ {fontSize: 20,
+
+    marginBottom: 10,
+    textAlign:'center',
+    color:'rgba(30, 13, 37, 1)', paddingTop: 20}]}>Estimated Wait Time: {getWaitTimeLabel(avgTime? avgTime : 0)}</Text>
+
+            {/* add other bar information here... and onclick to text to go to bar screen */}
+
+            {
+            //if user is in area
+            }
+            <View style={{flex: 1, justifyContent: 'center', alignItems:'center'}}>
+              <Text style={{fontWeight:'bold'}}>How Long is The Line?</Text>
+              <Slider
+                style={{width:200,paddingTop:20}}
+                minimumValue={0}
+                maximumValue={10}
+                step={1}
+                value={waitTime}
+                onValueChange={setWaitTime}
+                minimumTrackTintColor = 'purple'
+                maximumTrackTintColor='lightgrey'
+                thumbTintColor='purple'
+                trackHeight={10}
+                />
+                 <Text style={{paddingBottom:20, color:'grey'}}>{getWaitTimeLabel(waitTime)}</Text>
+
+                <TouchableOpacity style = {{padding:10,backgroundColor:'purple',margin:10,borderRadius:5}} onPress={submitWaitTime} disabled={loading}>
+                  <Text style={{color:'white'}}>Submit</Text>
+                </TouchableOpacity>
+            </View>
+            </View>
+
+            <Text style={{marginBottom:10, color:'purple'}}
+            onPress={()=> setShowModal(false)}>
+              Close
+            </Text>
+          </View>
+        </View>
+        </TouchableWithoutFeedback>
+      </Modal>
     </View>
   );
 }
@@ -68,4 +251,26 @@ const styles = StyleSheet.create({
   map:{
     flex: 1, 
   },
+  modalBackground:{
+    flex: 1,
+    backgroundColor:'rgba(0,0,0,0.5)',
+    justifyContent:'center',
+    alignItems:'center'
+  },
+  modalContainer: {
+    width:'80%',
+    height:'70%',
+    padding: 20,
+    backgroundColor:'rgba(213, 213, 213, 0.8)',
+    borderRadius: 10,
+    alignItems:'center',
+    justifyContent:'space-between'
+  },
+  modalTitle: {
+    fontSize: 20,
+    fontWeight: 'bold',
+    marginBottom: 10,
+    textAlign:'center',
+    color:'rgba(59, 4, 83, 1)'
+  }
 });
