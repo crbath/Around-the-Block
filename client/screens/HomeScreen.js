@@ -11,10 +11,12 @@ import HeadsUpGameScreen from './HeadsUpGameScreen';
 import TriviaScreen from './TriviaScreen';
 import TalkingBenMinigameScreen from './TalkingBenMinigameScreen';
 import BeerScreen from './BeerScreen';
+import BarProfileScreen from './BarProfileScreen';
 
 const Tab = createBottomTabNavigator();
 const ActivitiesStack = createNativeStackNavigator();
 const FeedStack = createNativeStackNavigator();
+const SelectBarsStack = createNativeStackNavigator();
 
 function ActivitiesStackNavigator() {
   return (
@@ -37,6 +39,16 @@ function FeedStackNavigator() {
   );
 }
 
+function SelectBarsStackNavigator() {
+  return (
+    <SelectBarsStack.Navigator screenOptions={{ headerShown: false }}>
+      <SelectBarsStack.Screen name="SelectBarsMain" component={SelectBarsScreen} />
+      <SelectBarsStack.Screen name="BarProfile" component={BarProfileScreen} />
+    </SelectBarsStack.Navigator>
+  );
+}
+
+
 export default function HomeScreen() {
   return (
     <Tab.Navigator
@@ -51,7 +63,7 @@ export default function HomeScreen() {
       <Tab.Screen name="Activities" component={ActivitiesStackNavigator} />
       <Tab.Screen name="Feed" component={FeedStackNavigator} />
       <Tab.Screen name="Maps" component={MapsScreen} />
-      <Tab.Screen name="Select Bars" component={SelectBarsScreen} />
+      <Tab.Screen name="Select Bars" component={SelectBarsStackNavigator} />
       <Tab.Screen name="Profile" component={ProfileScreen} />
     </Tab.Navigator>
   );
