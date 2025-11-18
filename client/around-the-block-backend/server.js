@@ -23,6 +23,23 @@ const userSchema = new mongoose.Schema({
   birthday: { type: String }
 });
 
+//bar schema for inputting wait times
+const barSchema = new mongoose.Schema({
+  barId: {type: String, required: true, unique:true}, //the bar id is returned with the osm call
+  barName: {type:String},
+  latitude: Number,
+  longitude: Number,
+  timeEntries: [
+    {  
+      userId: {type: mongoose.Schema.Types.ObjectId, ref:"User", required: true},
+      time: Number,
+      createdAt: {type: Date, default:Date.now}
+    }
+  ]
+})
+
+const BarTime = mongoose.model("BarTime", barSchema)
+
 const User = mongoose.model("User", userSchema);
 
 const verifyToken = (req, res, next) => {
@@ -92,6 +109,121 @@ app.post("/login", async (req, res) => {
     res.status(500).json({ error: error.message });
   }
 });
+
+//to enter the wait time to a bar
+app.post("/bartime", verifyToken, async (req, res) => {
+  console.log("Headers: ", req.headers)
+  try{
+    const {barId, barName, latitude,longitude,time} = req.body;
+  
+  if (time === undefined || time === null) {
+    return res.status(400).json({message: "Wait time is required"})
+  }
+
+  let bar = await BarTime.findOne({barId})
+
+  if (!bar){
+    bar = new BarTime({
+      barId,
+      barName,
+      latitude,
+      longitude,
+      timeEntries: []
+    })
+  }
+
+  const oneHourAgo = new Date(Date.now() - 60 * 60 * 1000)
+  const recentEntry = bar.timeEntries.find(
+    entry => entry.userId.toString() === req.userId.toString() && entry.createdAt > oneHourAgo
+  )
+  //prevent post spam
+  if (recentEntry){
+    return res.status(400).json({message: "No spamming wait times!"})
+  }
+
+  bar.timeEntries.push({
+    userId: req.userId,
+    time
+  })
+
+  await bar.save()
+  res.json({message: "Saved"})
+}
+catch(err){
+  //set error...
+  res.status(500).json({message: "Error adding time"})
+}
+})
+
+//get the bar wait time on select
+app.get("/bartime/:barId", async(req, res) => {
+  try{
+    const bar = await BarTime.findOne({barId: req.params.barId})
+
+    if(!bar || bar.timeEntries.length === 0){
+      return res.json({average: null})
+    }
+
+    const now = Date.now()
+    let weightedSum = 0
+    let totalWeight = 0
+
+    const dumpTime = 3 * 60 * 60 * 1000 //three hours for now, we can change this
+
+    //remove older entries: 2 options...
+    //option 1, just filter them out at time of
+    const entriesInTime = bar.timeEntries.filter(
+      timeEntry => now - timeEntry.createdAt.getTime()<=dumpTime
+    )
+  
+    if( entriesInTime.length === 0){
+      return res.json({average: null})
+    }
+
+    entriesInTime.forEach(entry => {
+      const ageMinutes = (now - entry.createdAt.getTime()) /60000
+      const weight = 1 / (ageMinutes + 1)
+
+        weightedSum += entry.time * weight
+        totalWeight += weight
+    })
+    const weightedAverage = totalWeight > 0 ? (weightedSum / totalWeight) : null
+
+    res.json({
+      average: Number(weightedAverage),
+    })
+
+    //option 2, remove entirely from db (Maybe we do it every few weeks and just store trends?)
+    /*
+     bar.timeEntries = bar.timeEntries.filter(
+      entry => now - entry.createdAt.getTime() <= dumpTime
+    )
+
+    await bar.save()
+
+    if(!bar || bar.timeEntries.length === 0){
+      return res.json({average: null})
+    }
+
+    bar.timeEntries.forEach(entry => {
+      const ageMinutes = (now - entry.createdAt.getTime()) /60000
+      const weight = 1 / (ageMinutes + 1)
+
+        weightedSum += entry.time * weight
+        totalWeight += weight
+    })
+    const weightedAverage = weightedSum / totalWeight
+
+    res.json({
+      average: Number(weightedAverage),
+    })
+    */
+  }
+  catch(err){
+    console.log("Get error")
+    //set error message
+  }
+})
 
 const PORT = process.env.PORT || 5000;
 app.listen(PORT, () => {
