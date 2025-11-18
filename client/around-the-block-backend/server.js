@@ -38,6 +38,8 @@ const barSchema = new mongoose.Schema({
   ]
 })
 
+const Bar = require("./models/Bar");
+
 const BarTime = mongoose.model("BarTime", barSchema)
 
 const User = mongoose.model("User", userSchema);
@@ -224,6 +226,29 @@ app.get("/bartime/:barId", async(req, res) => {
     //set error message
   }
 })
+
+app.get("/bars", async (req, res) => {
+  try {
+    const bars = await Bar.aggregate([
+      {
+        $project: {
+          _id: 0,
+          id: "$barId",
+          name: "$barName",
+          latitude: { $toDouble: "$latitude" },
+          longitude: { $toDouble: "$longitude" },
+          avgTime: { $avg: "$timeEntries.time" }
+        }
+      }
+    ]);
+
+    res.json(bars);
+  } catch (error) {
+    console.error("Error fetching bars:", error);
+    res.status(500).json({ message: "Error fetching bars" });
+  }
+});
+
 
 const PORT = process.env.PORT || 5000;
 app.listen(PORT, () => {

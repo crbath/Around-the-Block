@@ -1,18 +1,26 @@
-import React, { useState } from 'react';
-import { View, Text, StyleSheet, TextInput, FlatList, TouchableOpacity } from 'react-native';
-
-const sampleBars = [
-  { id: '1', name: 'Kollege Klub', waitTime: 75 },
-  { id: '2', name: 'Red Rock', waitTime: 60 },
-  { id: '3', name: 'Whiskey Jacks', waitTime: 90 },
-  { id: '4', name: 'State Street Brats', waitTime: 40 },
-  { id: '5', name: 'Double U', waitTime: 50 },
-];
+import React, { useState, useEffect } from "react";
+import { View, Text, StyleSheet, TextInput, FlatList, TouchableOpacity } from "react-native";
+import api from "../api/api";
 
 export default function SelectBarsScreen({ navigation }) {
-  const [search, setSearch] = useState('');
+  const [search, setSearch] = useState("");
+  const [bars, setBars] = useState([]);
 
-  const filteredBars = sampleBars.filter(bar =>
+  useEffect(() => {
+    const fetchBars = async () => {
+      try {
+        const response = await api.get("/bars");
+        setBars(response.data);
+      } catch (error) {
+        console.log("API error:", error.message);
+      }
+    };
+
+    fetchBars();
+  }, []);
+
+
+  const filteredBars = bars.filter(bar =>
     bar.name.toLowerCase().includes(search.toLowerCase())
   );
 
@@ -29,8 +37,15 @@ export default function SelectBarsScreen({ navigation }) {
 
       <View style={{ flex: 1 }}>
         <Text style={styles.barName}>{item.name}</Text>
+
+        {/* WAIT TIME LABEL */}
+        <Text style={styles.waitTime}>
+          {item.avgTime ? `${Math.round(item.avgTime)} min` : "No data"}
+        </Text>
+
+        {/* WAIT TIME BAR */}
         <View style={styles.waitBarBackground}>
-          <View style={[styles.waitBarFill, { width: `${item.waitTime}%` }]} />
+          <View style={[styles.waitBarFill, { width: `${item.avgTime ? item.avgTime : 1}%` }]} />
         </View>
       </View>
     </TouchableOpacity>
@@ -51,13 +66,13 @@ export default function SelectBarsScreen({ navigation }) {
       <FlatList
         data={filteredBars}
         renderItem={renderBar}
-        keyExtractor={item => item.id}
-        style={{ width: '100%' }}
+        keyExtractor={item => item._id}
         showsVerticalScrollIndicator={false}
       />
     </View>
   );
 }
+
 
 const styles = StyleSheet.create({
   container: {
@@ -108,6 +123,11 @@ const styles = StyleSheet.create({
     fontWeight: 'bold',
     color: '#fff',
     marginBottom: 6
+  },
+  waitTime: {
+    color: '#fff',
+    fontSize: 14,
+    marginBottom: 4
   },
   waitBarBackground: {
     width: '100%',
