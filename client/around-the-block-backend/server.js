@@ -38,8 +38,6 @@ const barSchema = new mongoose.Schema({
   ]
 })
 
-const Bar = require("./models/Bar");
-
 const BarTime = mongoose.model("BarTime", barSchema)
 
 const User = mongoose.model("User", userSchema);
@@ -229,7 +227,7 @@ app.get("/bartime/:barId", async(req, res) => {
 
 app.get("/bars", async (req, res) => {
   try {
-    const bars = await Bar.aggregate([
+    const bars = await BarTime.aggregate([
       {
         $project: {
           _id: 0,
@@ -237,7 +235,13 @@ app.get("/bars", async (req, res) => {
           name: "$barName",
           latitude: { $toDouble: "$latitude" },
           longitude: { $toDouble: "$longitude" },
-          avgTime: { $avg: "$timeEntries.time" }
+          avgTime: {
+            $cond: {
+              if: { $gt: [{ $size: "$timeEntries" }, 0] },
+              then: { $avg: "$timeEntries.time" },
+              else: null
+            }
+          }
         }
       }
     ]);

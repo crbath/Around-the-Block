@@ -1,4 +1,4 @@
-const mongoose = require("mongoose");
+import mongoose from "mongoose";
 
 const TimeEntrySchema = new mongoose.Schema({
   userId: { type: mongoose.Schema.Types.ObjectId },
@@ -14,4 +14,6 @@ const BarSchema = new mongoose.Schema({
   timeEntries: [TimeEntrySchema]
 });
 
-module.exports = mongoose.model("Bar", BarSchema, "bars");
+const Bar = mongoose.model("Bar", BarSchema, "bars");
+
+export default Bar;

@@ -1,27 +1,33 @@
 import React, { useState, useEffect } from "react";
-import { View, Text, StyleSheet, TextInput, FlatList, TouchableOpacity } from "react-native";
+import { View, Text, StyleSheet, TextInput, FlatList, TouchableOpacity, ActivityIndicator } from "react-native";
 import api from "../api/api";
 
 export default function SelectBarsScreen({ navigation }) {
   const [search, setSearch] = useState("");
   const [bars, setBars] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
 
   useEffect(() => {
-    const fetchBars = async () => {
-      try {
-        const response = await api.get("/bars");
-        setBars(response.data);
-      } catch (error) {
-        console.log("API error:", error.message);
-      }
-    };
-
     fetchBars();
   }, []);
 
+  const fetchBars = async () => {
+    try {
+      setLoading(true);
+      setError(null);
+      const response = await api.get("/bars");
+      setBars(response.data);
+    } catch (error) {
+      console.log("API error:", error.message);
+      setError("Failed to load bars. Please try again.");
+    } finally {
+      setLoading(false);
+    }
+  };
 
   const filteredBars = bars.filter(bar =>
-    bar.name.toLowerCase().includes(search.toLowerCase())
+    bar.name && bar.name.toLowerCase().includes(search.toLowerCase())
   );
 
   const renderBar = ({ item }) => (
@@ -31,25 +37,62 @@ export default function SelectBarsScreen({ navigation }) {
     >
       <View style={styles.initialsCircle}>
         <Text style={styles.initialText}>
-          {item.name.split(' ').map(word => word[0]).join('').substring(0, 2)}
+          {item.name ? item.name.split(' ').map(word => word[0]).join('').substring(0, 2).toUpperCase() : '??'}
         </Text>
       </View>
 
       <View style={{ flex: 1 }}>
-        <Text style={styles.barName}>{item.name}</Text>
+        <Text style={styles.barName}>{item.name || 'Unknown Bar'}</Text>
 
         {/* WAIT TIME LABEL */}
         <Text style={styles.waitTime}>
-          {item.avgTime ? `${Math.round(item.avgTime)} min` : "No data"}
+          {item.avgTime !== null && item.avgTime !== undefined 
+            ? `${Math.round(item.avgTime)} min` 
+            : "No data"}
         </Text>
 
         {/* WAIT TIME BAR */}
         <View style={styles.waitBarBackground}>
-          <View style={[styles.waitBarFill, { width: `${item.avgTime ? item.avgTime : 1}%` }]} />
+          <View 
+            style={[
+              styles.waitBarFill, 
+              { 
+                width: item.avgTime 
+                  ? `${Math.min(item.avgTime * 10, 100)}%`  // Scale to percentage (10 min = 100%)
+                  : '1%' 
+              }
+            ]} 
+          />
         </View>
       </View>
     </TouchableOpacity>
   );
+
+  if (loading) {
+    return (
+      <View style={styles.container}>
+        <Text style={styles.title}>Select Bars</Text>
+        <View style={styles.centerContent}>
+          <ActivityIndicator size="large" color="#7EA0FF" />
+          <Text style={styles.loadingText}>Loading bars...</Text>
+        </View>
+      </View>
+    );
+  }
+
+  if (error) {
+    return (
+      <View style={styles.container}>
+        <Text style={styles.title}>Select Bars</Text>
+        <View style={styles.centerContent}>
+          <Text style={styles.errorText}>{error}</Text>
+          <TouchableOpacity style={styles.retryButton} onPress={fetchBars}>
+            <Text style={styles.retryButtonText}>Retry</Text>
+          </TouchableOpacity>
+        </View>
+      </View>
+    );
+  }
 
   return (
     <View style={styles.container}>
@@ -63,16 +106,25 @@ export default function SelectBarsScreen({ navigation }) {
         onChangeText={setSearch}
       />
 
-      <FlatList
-        data={filteredBars}
-        renderItem={renderBar}
-        keyExtractor={item => item._id}
-        showsVerticalScrollIndicator={false}
-      />
+      {filteredBars.length === 0 ? (
+        <View style={styles.centerContent}>
+          <Text style={styles.emptyText}>
+            {bars.length === 0 
+              ? "No bars found. Add bars from the Maps screen!" 
+              : "No bars match your search."}
+          </Text>
+        </View>
+      ) : (
+        <FlatList
+          data={filteredBars}
+          renderItem={renderBar}
+          keyExtractor={(item, index) => item.id ? item.id.toString() : `bar-${index}`}
+          showsVerticalScrollIndicator={false}
+        />
+      )}
     </View>
   );
 }
-
 
 const styles = StyleSheet.create({
   container: {
@@ -139,5 +191,37 @@ const styles = StyleSheet.create({
     height: '100%',
     backgroundColor: '#6A4CF3',
     borderRadius: 10
-  }
+  },
+  centerContent: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  loadingText: {
+    color: '#fff',
+    fontSize: 16,
+    marginTop: 10,
+  },
+  errorText: {
+    color: '#FF6B6B',
+    fontSize: 16,
+    textAlign: 'center',
+    marginBottom: 20,
+  },
+  emptyText: {
+    color: '#ccc',
+    fontSize: 16,
+    textAlign: 'center',
+  },
+  retryButton: {
+    backgroundColor: '#7EA0FF',
+    paddingVertical: 12,
+    paddingHorizontal: 30,
+    borderRadius: 10,
+  },
+  retryButtonText: {
+    color: '#fff',
+    fontSize: 16,
+    fontWeight: 'bold',
+  },
 });
