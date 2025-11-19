@@ -1,16 +1,26 @@
 import React, { useState, useEffect } from "react";
-import { View, Text, StyleSheet, TextInput, FlatList, TouchableOpacity, ActivityIndicator } from "react-native";
+import { View, Text, StyleSheet, TextInput, FlatList, TouchableOpacity, ActivityIndicator, RefreshControl } from "react-native";
+import { Ionicons } from '@expo/vector-icons';
 import api from "../api/api";
 
 export default function SelectBarsScreen({ navigation }) {
   const [search, setSearch] = useState("");
   const [bars, setBars] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState(null);
 
   useEffect(() => {
     fetchBars();
   }, []);
+
+  // Add listener to refresh when screen comes into focus
+  useEffect(() => {
+    const unsubscribe = navigation.addListener('focus', () => {
+      fetchBars();
+    });
+    return unsubscribe;
+  }, [navigation]);
 
   const fetchBars = async () => {
     try {
@@ -26,52 +36,81 @@ export default function SelectBarsScreen({ navigation }) {
     }
   };
 
+  const onRefresh = async () => {
+    setRefreshing(true);
+    await fetchBars();
+    setRefreshing(false);
+  };
+
+  // ------ Unified Wait Time Label Function ------
+  const getWaitTimeLabel = (waitTime) => {
+    if (waitTime === null || waitTime === undefined) return "No data";
+    if (waitTime <= 0) return "No wait";
+    if (waitTime <= 10) return "Short";
+    if (waitTime <= 30) return "Moderate";
+    if (waitTime <= 60) return "Long";
+    return "Very long";
+  };
+
+
   const filteredBars = bars.filter(bar =>
     bar.name && bar.name.toLowerCase().includes(search.toLowerCase())
   );
 
-  const renderBar = ({ item }) => (
-    <TouchableOpacity
-      onPress={() => navigation.navigate('BarProfile', { bar: item })}
-      style={styles.barContainer}
-    >
-      <View style={styles.initialsCircle}>
-        <Text style={styles.initialText}>
-          {item.name ? item.name.split(' ').map(word => word[0]).join('').substring(0, 2).toUpperCase() : '??'}
-        </Text>
-      </View>
+  const renderBar = ({ item }) => {
+    const waitTime = item.avgTime !== null && item.avgTime !== undefined ? item.avgTime : 0;
+    const barFillPercentage = Math.min((waitTime / 120) * 100, 100); // Scale to 120 minutes max
 
-      <View style={{ flex: 1 }}>
-        <Text style={styles.barName}>{item.name || 'Unknown Bar'}</Text>
-
-        {/* WAIT TIME LABEL */}
-        <Text style={styles.waitTime}>
-          {item.avgTime !== null && item.avgTime !== undefined 
-            ? `${Math.round(item.avgTime)} min` 
-            : "No data"}
-        </Text>
-
-        {/* WAIT TIME BAR */}
-        <View style={styles.waitBarBackground}>
-          <View 
-            style={[
-              styles.waitBarFill, 
-              { 
-                width: item.avgTime 
-                  ? `${Math.min(item.avgTime * 10, 100)}%`  // Scale to percentage (10 min = 100%)
-                  : '1%' 
-              }
-            ]} 
-          />
+    return (
+      <TouchableOpacity
+        onPress={() => navigation.navigate('BarProfile', { bar: item })}
+        style={styles.barContainer}
+      >
+        <View style={styles.initialsCircle}>
+          <Text style={styles.initialText}>
+            {item.name ? item.name.split(' ').map(word => word[0]).join('').substring(0, 2).toUpperCase() : '??'}
+          </Text>
         </View>
-      </View>
-    </TouchableOpacity>
-  );
 
-  if (loading) {
+        <View style={{ flex: 1 }}>
+          <Text style={styles.barName}>{item.name || 'Unknown Bar'}</Text>
+
+          {/* WAIT TIME LABEL */}
+          <Text style={styles.waitTime}>
+            {item.avgTime !== null && item.avgTime !== undefined 
+              ? `${Math.round(item.avgTime)} min - ${getWaitTimeLabel(item.avgTime)}`
+              : "No data"}
+          </Text>
+
+
+          {/* WAIT TIME BAR - Scaled to 120 minutes */}
+          <View style={styles.waitBarBackground}>
+            <View 
+              style={[
+                styles.waitBarFill, 
+                { 
+                  width: `${barFillPercentage}%`,
+                  backgroundColor: waitTime > 8 ? '#FF6B6B' : waitTime > 5 ? '#FFB347' : '#6A4CF3'
+                }
+              ]} 
+            />
+          </View>
+          
+          {/* Max time indicator */}
+          {item.avgTime !== null && item.avgTime !== undefined && (
+            <Text style={styles.maxTimeText}>0 min — 120 min</Text>
+          )}
+        </View>
+      </TouchableOpacity>
+    );
+  };
+
+  if (loading && !refreshing) {
     return (
       <View style={styles.container}>
-        <Text style={styles.title}>Select Bars</Text>
+        <View style={styles.headerRow}>
+          <Text style={styles.title}>Select Bars</Text>
+        </View>
         <View style={styles.centerContent}>
           <ActivityIndicator size="large" color="#7EA0FF" />
           <Text style={styles.loadingText}>Loading bars...</Text>
@@ -80,10 +119,12 @@ export default function SelectBarsScreen({ navigation }) {
     );
   }
 
-  if (error) {
+  if (error && !refreshing) {
     return (
       <View style={styles.container}>
-        <Text style={styles.title}>Select Bars</Text>
+        <View style={styles.headerRow}>
+          <Text style={styles.title}>Select Bars</Text>
+        </View>
         <View style={styles.centerContent}>
           <Text style={styles.errorText}>{error}</Text>
           <TouchableOpacity style={styles.retryButton} onPress={fetchBars}>
@@ -96,7 +137,21 @@ export default function SelectBarsScreen({ navigation }) {
 
   return (
     <View style={styles.container}>
-      <Text style={styles.title}>Select Bars</Text>
+      <View style={styles.headerRow}>
+        <Text style={styles.title}>Select Bars</Text>
+        <TouchableOpacity 
+          style={styles.refreshButton} 
+          onPress={onRefresh}
+          disabled={refreshing}
+        >
+          <Ionicons 
+            name="refresh" 
+            size={24} 
+            color="#7EA0FF" 
+            style={refreshing ? styles.refreshingIcon : null}
+          />
+        </TouchableOpacity>
+      </View>
 
       <TextInput
         style={styles.searchInput}
@@ -120,6 +175,14 @@ export default function SelectBarsScreen({ navigation }) {
           renderItem={renderBar}
           keyExtractor={(item, index) => item.id ? item.id.toString() : `bar-${index}`}
           showsVerticalScrollIndicator={false}
+          refreshControl={
+            <RefreshControl
+              refreshing={refreshing}
+              onRefresh={onRefresh}
+              tintColor="#7EA0FF"
+              colors={["#7EA0FF"]}
+            />
+          }
         />
       )}
     </View>
@@ -133,11 +196,22 @@ const styles = StyleSheet.create({
     paddingHorizontal: 20,
     backgroundColor: '#0B0D17'
   },
+  headerRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 20,
+  },
   title: {
     fontSize: 30,
     fontWeight: 'bold',
     color: '#fff',
-    marginBottom: 20
+  },
+  refreshButton: {
+    padding: 8,
+  },
+  refreshingIcon: {
+    opacity: 0.5,
   },
   searchInput: {
     width: '100%',
@@ -185,12 +259,17 @@ const styles = StyleSheet.create({
     width: '100%',
     height: 10,
     backgroundColor: '#C3B6F2',
-    borderRadius: 10
+    borderRadius: 10,
+    marginBottom: 2,
   },
   waitBarFill: {
     height: '100%',
-    backgroundColor: '#6A4CF3',
-    borderRadius: 10
+    borderRadius: 10,
+  },
+  maxTimeText: {
+    fontSize: 10,
+    color: '#DAD3F5',
+    marginTop: 2,
   },
   centerContent: {
     flex: 1,

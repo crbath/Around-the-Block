@@ -71,15 +71,16 @@ export default function MapsScreen() {
     }
   }
 
-  const getWaitTimeLabel = (waitTime) =>{
-    if (waitTime >= 0 && waitTime <= 3) return "No wait"
-    if (waitTime >= 3 && waitTime <= 5) return "Short"
-    if (waitTime >= 5 && waitTime <= 8) return "Slightly long"
-    if (waitTime >= 8 && waitTime <= 10) return "Extremly long"
+    // ------ Unified Wait Time Label Function ------
+  const getWaitTimeLabel = (waitTime) => {
+    if (waitTime === null || waitTime === undefined) return "No data";
+    if (waitTime <= 0) return "No wait";
+    if (waitTime <= 10) return "Short";
+    if (waitTime <= 30) return "Moderate";
+    if (waitTime <= 60) return "Long";
+    return "Very long";
+  };
 
-
-
-  }
 
   //using OSM to fetch bars instead of googleplaces
   useEffect(()=>{
@@ -202,22 +203,23 @@ export default function MapsScreen() {
             <View style={{flex: 1, justifyContent: 'center', alignItems:'center'}}>
               <Text style={{fontWeight:'bold'}}>How Long is The Line?</Text>
               <Slider
-                style={{width:200,paddingTop:20}}
+                style={{ width: 200, paddingTop: 20 }}
                 minimumValue={0}
-                maximumValue={10}
-                step={1}
+                maximumValue={120}
+                step={5}
                 value={waitTime}
                 onValueChange={setWaitTime}
-                minimumTrackTintColor = 'purple'
-                maximumTrackTintColor='lightgrey'
-                thumbTintColor='purple'
+                minimumTrackTintColor="purple"
+                maximumTrackTintColor="lightgrey"
+                thumbTintColor="purple"
                 trackHeight={10}
-                />
-                 <Text style={{paddingBottom:20, color:'grey'}}>{getWaitTimeLabel(waitTime)}</Text>
-
-                <TouchableOpacity style = {{padding:10,backgroundColor:'purple',margin:10,borderRadius:5}} onPress={submitWaitTime} disabled={loading}>
-                  <Text style={{color:'white'}}>Submit</Text>
-                </TouchableOpacity>
+              />
+              <Text style={{ paddingBottom: 20, color: 'grey' }}>
+                {getWaitTimeLabel(waitTime)}
+              </Text>
+              <TouchableOpacity style = {{padding:10,backgroundColor:'purple',margin:10,borderRadius:5}} onPress={submitWaitTime} disabled={loading}>
+                <Text style={{color:'white'}}>Submit</Text>
+              </TouchableOpacity>
             </View>
             </View>
 
