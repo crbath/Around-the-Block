@@ -14,6 +14,7 @@ import TalkingBenMinigameScreen from './TalkingBenMinigameScreen';
 import BeerScreen from './BeerScreen';
 import PostDetailScreen from './PostDetailScreen';
 import FriendProfileScreen from './FriendProfileScreen';
+import CreatePostScreen from './CreatePostScreen';
 
 const Tab = createBottomTabNavigator();
 const ActivitiesStack = createNativeStackNavigator();
@@ -38,6 +39,7 @@ function FeedStackNavigator() {
       <FeedStack.Screen name="Friends" component={FriendsScreen} />
       <FeedStack.Screen name="PostDetail" component={PostDetailScreen} />
       <FeedStack.Screen name="FriendProfile" component={FriendProfileScreen} />
+      <FeedStack.Screen name="CreatePost" component={CreatePostScreen} />
     </FeedStack.Navigator>
   );
 }
