@@ -47,12 +47,10 @@ export default function FriendsScreen({ navigation }) {
 
  }
 
-  // handle when user clicks on a friend in the list
+  // when user clicks on a friend, navigate to their profile screen
   function handleFriendPress(friend) {
-     console.log('friend clicked:', friend.username);
-   // TODO: navigate to friend profile
-
- }
+    navigation.navigate('FriendProfile', { friend });
+  }
 
   // show loading spinner while data is being fetched
   if (loading) {
