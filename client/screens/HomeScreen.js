@@ -1,6 +1,7 @@
 import React from 'react';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
+import { Ionicons } from '@expo/vector-icons';
 import ActivitiesScreen from './ActivitiesScreen';
 import FeedScreen from './FeedScreen';
 import FriendsScreen from './FriendsScreen';
@@ -52,11 +53,51 @@ export default function HomeScreen() {
         tabBarInactiveTintColor: '#fff',
       }}
     >
-      <Tab.Screen name="Activities" component={ActivitiesStackNavigator} />
-      <Tab.Screen name="Feed" component={FeedStackNavigator} />
-      <Tab.Screen name="Maps" component={MapsScreen} />
-      <Tab.Screen name="Select Bars" component={SelectBarsScreen} />
-      <Tab.Screen name="Profile" component={ProfileScreen} />
+      <Tab.Screen 
+        name="Activities" 
+        component={ActivitiesStackNavigator}
+        options={{
+          tabBarIcon: ({ color, size }) => (
+            <Ionicons name="game-controller-outline" size={size} color={color} />
+          ),
+        }}
+      />
+      <Tab.Screen 
+        name="Feed" 
+        component={FeedStackNavigator}
+        options={{
+          tabBarIcon: ({ color, size }) => (
+            <Ionicons name="newspaper-outline" size={size} color={color} />
+          ),
+        }}
+      />
+      <Tab.Screen 
+        name="Maps" 
+        component={MapsScreen}
+        options={{
+          tabBarIcon: ({ color, size }) => (
+            <Ionicons name="map-outline" size={size} color={color} />
+          ),
+        }}
+      />
+      <Tab.Screen 
+        name="Select Bars" 
+        component={SelectBarsScreen}
+        options={{
+          tabBarIcon: ({ color, size }) => (
+            <Ionicons name="wine-outline" size={size} color={color} />
+          ),
+        }}
+      />
+      <Tab.Screen 
+        name="Profile" 
+        component={ProfileScreen}
+        options={{
+          tabBarIcon: ({ color, size }) => (
+            <Ionicons name="person-outline" size={size} color={color} />
+          ),
+        }}
+      />
     </Tab.Navigator>
   );
 }
