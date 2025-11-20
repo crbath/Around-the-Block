@@ -1,6 +1,7 @@
 import React from 'react';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
+import { Ionicons } from '@expo/vector-icons';
 import ActivitiesScreen from './ActivitiesScreen';
 import FeedScreen from './FeedScreen';
 import FriendsScreen from './FriendsScreen';
@@ -12,6 +13,8 @@ import TriviaScreen from './TriviaScreen';
 import TalkingBenMinigameScreen from './TalkingBenMinigameScreen';
 import BeerScreen from './BeerScreen';
 import BarProfileScreen from './BarProfileScreen';
+import PostDetailScreen from './PostDetailScreen';
+import FriendProfileScreen from './FriendProfileScreen';
 
 const Tab = createBottomTabNavigator();
 const ActivitiesStack = createNativeStackNavigator();
@@ -35,6 +38,8 @@ function FeedStackNavigator() {
     <FeedStack.Navigator screenOptions={{ headerShown: false }}>
       <FeedStack.Screen name="FeedMain" component={FeedScreen} />
       <FeedStack.Screen name="Friends" component={FriendsScreen} />
+      <FeedStack.Screen name="PostDetail" component={PostDetailScreen} />
+      <FeedStack.Screen name="FriendProfile" component={FriendProfileScreen} />
     </FeedStack.Navigator>
   );
 }
@@ -60,11 +65,51 @@ export default function HomeScreen() {
         tabBarInactiveTintColor: '#fff',
       }}
     >
-      <Tab.Screen name="Activities" component={ActivitiesStackNavigator} />
-      <Tab.Screen name="Feed" component={FeedStackNavigator} />
-      <Tab.Screen name="Maps" component={MapsScreen} />
-      <Tab.Screen name="Select Bars" component={SelectBarsStackNavigator} />
-      <Tab.Screen name="Profile" component={ProfileScreen} />
+      <Tab.Screen 
+        name="Activities" 
+        component={ActivitiesStackNavigator}
+        options={{
+          tabBarIcon: ({ color, size }) => (
+            <Ionicons name="game-controller-outline" size={size} color={color} />
+          ),
+        }}
+      />
+      <Tab.Screen 
+        name="Feed" 
+        component={FeedStackNavigator}
+        options={{
+          tabBarIcon: ({ color, size }) => (
+            <Ionicons name="newspaper-outline" size={size} color={color} />
+          ),
+        }}
+      />
+      <Tab.Screen 
+        name="Maps" 
+        component={MapsScreen}
+        options={{
+          tabBarIcon: ({ color, size }) => (
+            <Ionicons name="map-outline" size={size} color={color} />
+          ),
+        }}
+      />
+      <Tab.Screen 
+        name="Select Bars" 
+        component={SelectBarsStackNavigator}
+        options={{
+          tabBarIcon: ({ color, size }) => (
+            <Ionicons name="wine-outline" size={size} color={color} />
+          ),
+        }}
+      />
+      <Tab.Screen 
+        name="Profile" 
+        component={ProfileScreen}
+        options={{
+          tabBarIcon: ({ color, size }) => (
+            <Ionicons name="person-outline" size={size} color={color} />
+          ),
+        }}
+      />
     </Tab.Navigator>
   );
 }
