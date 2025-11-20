@@ -108,7 +108,8 @@ export default function FeedScreen({ navigation }) {
         keyExtractor={(item) => item.id} // unique key for each post
         renderItem={({ item }) => {
           // render each post using PostCard component
-          return <PostCard post={item} />;
+          // Pass navigation prop so PostCard can navigate to detail screen
+          return <PostCard post={{ ...item, navigation }} />;
         }}
 
 

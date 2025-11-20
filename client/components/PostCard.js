@@ -40,8 +40,15 @@ export default function PostCard({ post }) {
     // TODO: add comment functionality later
   }
 
+  // handle when user clicks on the post card
+  function handlePostPress() {
+    if (post.navigation) {
+      post.navigation.navigate('PostDetail', { post });
+    }
+  }
+
   return (
-    <View style={styles.card}>
+    <TouchableOpacity style={styles.card} onPress={handlePostPress} activeOpacity={0.8}>
       {/* header section with user profile icon and info */}
       <View style={styles.header}>
         {/* profile circle with first letter of username */}
@@ -79,15 +86,24 @@ export default function PostCard({ post }) {
           </Text>
         </TouchableOpacity>
 
-        {/* comment button */}
-        <TouchableOpacity onPress={handleComment} style={styles.button}>
+        {/* comment button - navigate to detail screen */}
+        <TouchableOpacity 
+          onPress={() => {
+            if (post.navigation) {
+              post.navigation.navigate('PostDetail', { post });
+            } else {
+              handleComment();
+            }
+          }} 
+          style={styles.button}
+        >
           <Ionicons name="chatbubble-outline" size={20} color="#9BA1A6" />
           <Text style={styles.buttonText}>
             {post.commentCount > 0 ? post.commentCount : 'Comment'}
           </Text>
         </TouchableOpacity>
       </View>
-    </View>
+    </TouchableOpacity>
   );
 }
 
