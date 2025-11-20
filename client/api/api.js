@@ -8,4 +8,13 @@ const api = axios.create({
   baseURL: BASE_URL,
 });
 
+// ---- BAR API CALLS ---- //
+export const getBars = () => api.get('/bars');
+
+export const getBarAverage = (barId) =>
+  api.get(`/bartime/${barId}`);
+
+export const submitBarTime = (barId, time) =>
+  api.post(`/bartime`, { barId, time });
+
 export default api;

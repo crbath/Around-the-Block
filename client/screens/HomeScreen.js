@@ -12,12 +12,14 @@ import HeadsUpGameScreen from './HeadsUpGameScreen';
 import TriviaScreen from './TriviaScreen';
 import TalkingBenMinigameScreen from './TalkingBenMinigameScreen';
 import BeerScreen from './BeerScreen';
+import BarProfileScreen from './BarProfileScreen';
 import PostDetailScreen from './PostDetailScreen';
 import FriendProfileScreen from './FriendProfileScreen';
 
 const Tab = createBottomTabNavigator();
 const ActivitiesStack = createNativeStackNavigator();
 const FeedStack = createNativeStackNavigator();
+const SelectBarsStack = createNativeStackNavigator();
 
 function ActivitiesStackNavigator() {
   return (
@@ -41,6 +43,16 @@ function FeedStackNavigator() {
     </FeedStack.Navigator>
   );
 }
+
+function SelectBarsStackNavigator() {
+  return (
+    <SelectBarsStack.Navigator screenOptions={{ headerShown: false }}>
+      <SelectBarsStack.Screen name="SelectBarsMain" component={SelectBarsScreen} />
+      <SelectBarsStack.Screen name="BarProfile" component={BarProfileScreen} />
+    </SelectBarsStack.Navigator>
+  );
+}
+
 
 export default function HomeScreen() {
   return (
@@ -82,7 +94,7 @@ export default function HomeScreen() {
       />
       <Tab.Screen 
         name="Select Bars" 
-        component={SelectBarsScreen}
+        component={SelectBarsStackNavigator}
         options={{
           tabBarIcon: ({ color, size }) => (
             <Ionicons name="wine-outline" size={size} color={color} />
