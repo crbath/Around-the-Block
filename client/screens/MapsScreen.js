@@ -6,6 +6,7 @@ import * as Location from 'expo-location'
 import axios from 'axios'
 import Slider from '@react-native-community/slider'
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import WaitTimeSlider from '../components/WaitTimeSlider';
 
 export default function MapsScreen() {
   //user's location
@@ -40,7 +41,7 @@ export default function MapsScreen() {
 
 
   //setting wait times
-  const [waitTime, setWaitTime] = useState(10)
+  const [waitTime, setWaitTime] = useState(0)
   
   const submitWaitTime = async () =>{
     if(!selectedBar) return;
@@ -183,8 +184,12 @@ export default function MapsScreen() {
         transparent = {true}
         animationType="fade"
         onRequestClose={() => setShowModal(false)}>
+          <View style ={styles.modalBackground}>
+
           <TouchableWithoutFeedback onPress={()=> setShowModal(false)}>
-        <View style ={styles.modalBackground}>
+            <View style={styles.backdrop}/>
+          </TouchableWithoutFeedback>
+
           <View style = {styles.modalContainer}>
 
             <View style={{flex:1, justifyContent:'flex-start', alignItems:'center'}}>
@@ -193,7 +198,7 @@ export default function MapsScreen() {
 
     marginBottom: 10,
     textAlign:'center',
-    color:'rgba(30, 13, 37, 1)', paddingTop: 20}]}>Estimated Wait Time: {getWaitTimeLabel(avgTime? avgTime : 0)}</Text>
+    color:'purple', paddingTop: 20}]}>Estimated Wait Time: {getWaitTimeLabel(avgTime? avgTime : 0)}</Text>
 
             {/* add other bar information here... and onclick to text to go to bar screen */}
 
@@ -201,8 +206,8 @@ export default function MapsScreen() {
             //if user is in area
             }
             <View style={{flex: 1, justifyContent: 'center', alignItems:'center'}}>
-              <Text style={{fontWeight:'bold'}}>How Long is The Line?</Text>
-              <Slider
+              <Text style={{fontWeight:'bold', color:'#7EA0FF'}}>How Long is The Line?</Text>
+              {/* <Slider
                 style={{ width: 200, paddingTop: 20 }}
                 minimumValue={0}
                 maximumValue={120}
@@ -213,10 +218,17 @@ export default function MapsScreen() {
                 maximumTrackTintColor="lightgrey"
                 thumbTintColor="purple"
                 trackHeight={10}
+              /> */}
+              <View style={{width:250}}>
+              <WaitTimeSlider
+              value = {waitTime}
+              onChange = {setWaitTime}
+              getLabel = {getWaitTimeLabel}
               />
-              <Text style={{ paddingBottom: 20, color: 'grey' }}>
+              </View>
+              {/* <Text style={{ paddingBottom: 20, color: 'grey' }}>
                 {getWaitTimeLabel(waitTime)}
-              </Text>
+              </Text> */}
               <TouchableOpacity style = {{padding:10,backgroundColor:'purple',margin:10,borderRadius:5}} onPress={submitWaitTime} disabled={loading}>
                 <Text style={{color:'white'}}>Submit</Text>
               </TouchableOpacity>
@@ -229,7 +241,6 @@ export default function MapsScreen() {
             </Text>
           </View>
         </View>
-        </TouchableWithoutFeedback>
       </Modal>
     </View>
   );
@@ -263,16 +274,25 @@ const styles = StyleSheet.create({
     width:'80%',
     height:'70%',
     padding: 20,
-    backgroundColor:'rgba(213, 213, 213, 0.8)',
+    backgroundColor:'rgba(30,30,30, 0.8)',
     borderRadius: 10,
     alignItems:'center',
-    justifyContent:'space-between'
+    justifyContent:'space-between',
+    zIndex: 2
   },
   modalTitle: {
     fontSize: 20,
     fontWeight: 'bold',
     marginBottom: 10,
     textAlign:'center',
-    color:'rgba(59, 4, 83, 1)'
+    color:'#fff'
+  },
+  backdrop:{
+    position:'absolute',
+    top:0,
+    left:0,
+    right:0,
+    bottom:0,
+    zIndex:1
   }
 });

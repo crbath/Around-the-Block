@@ -4,6 +4,7 @@ import Slider from '@react-native-community/slider';
 import { Ionicons } from '@expo/vector-icons';
 import api from '../api/api';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import WaitTimeSlider from '../components/WaitTimeSlider';
 
 export default function BarProfileScreen({ route, navigation }) {
   const { bar } = route.params;
@@ -138,7 +139,12 @@ export default function BarProfileScreen({ route, navigation }) {
             <Text style={styles.modalTitle}>How long is the line?</Text>
             <Text style={styles.modalSubtitle}>Help others know the wait time</Text>
             
-            <View style={styles.sliderContainer}>
+            <WaitTimeSlider
+              value = {timeValue}
+              onChange = {setTimeValue}
+              getLabel={getWaitTimeLabel}
+            />
+            {/* <View style={styles.sliderContainer}>
               <Slider
                 style={styles.slider}
                 minimumValue={0}
@@ -152,7 +158,7 @@ export default function BarProfileScreen({ route, navigation }) {
               />
               <Text style={styles.timeValueText}>{timeValue} min</Text>
               <Text style={styles.timeLabelText}>{getWaitTimeLabel(timeValue)}</Text>
-            </View>
+            </View> */}
 
             <View style={styles.modalButtons}>
               <TouchableOpacity 
