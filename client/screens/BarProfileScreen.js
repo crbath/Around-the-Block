@@ -1,9 +1,10 @@
 import React, { useEffect, useState } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, Image, ScrollView, Modal, ActivityIndicator, Alert } from 'react-native';
+import { View, Text, StyleSheet, TouchableOpacity, Image, ScrollView, Modal, ActivityIndicator, Alert, TextInput } from 'react-native';
 import Slider from '@react-native-community/slider';
 import { Ionicons } from '@expo/vector-icons';
 import api from '../api/api';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import WaitTimeSlider from '../components/WaitTimeSlider';
 
 export default function BarProfileScreen({ route, navigation }) {
   const { bar } = route.params;
@@ -11,13 +12,52 @@ export default function BarProfileScreen({ route, navigation }) {
   const [modalVisible, setModalVisible] = useState(false);
   const [timeValue, setTimeValue] = useState(10);
   const [loading, setLoading] = useState(false);
-
+  const [isBarOwner, setIsBarOwner] = useState(false)
+  const [deals, setDeals] = useState(bar.deals || '')
+  const [hours, setHours] = useState(bar.hours || '')
+  const [editing, setEditing] = useState(false)
   useEffect(() => {
+    if(!bar) return
     fetchBarData();
-  }, []);
+    fetchBarInfo()
+    
+    const checkBarOwner = async () => {
+      try{
+          const token = await AsyncStorage.getItem('token')
+          const res = await api.get('/profile', {
+            headers: {Authorization: `Bearer ${token}`}
+          })
+          console.log(res.data.bar, bar.id)
+          if (res.data.bar=== bar.id){
+            setIsBarOwner(true)
+          }
+      }catch(err){
+        console.log("ERROR: ", err)
+      }
+    }
+    checkBarOwner()
+  }, [bar]);
+
+  const fetchBarInfo = async() => {
+    console.log("Fetching... ", bar.id)
+    try{
+      setLoading(true)
+      console.log(bar.id, typeof(bar.id))
+      const res = await api.get(`/bar/${bar.id}`)
+      setDeals(res.data.deals || '')
+      setHours(res.data.hours || '')
+      console.log("recieved: ", res)
+    }catch (err) {
+      console.log("Error fetching bar", err);
+      setAvgTime(null);
+    } finally {
+      setLoading(false);
+    }
+  }
 
   const fetchBarData = async () => {
     try {
+      console.log("Bar", bar)
       setLoading(true);
       const result = await api.get(`/bartime/${bar.id}`);
       setAvgTime(result.data.average);
@@ -71,6 +111,25 @@ export default function BarProfileScreen({ route, navigation }) {
   };
 
 
+const updateBarInfo = async() => {
+  try{
+    const token = await AsyncStorage.getItem('token')
+    await api.post(
+      '/update-bar', 
+      {barId: bar.id, deals, hours},
+      {headers: {Authorization: `Bearer ${token}`}}
+    )
+
+    Alert.alert("Updated bar information!")
+    setEditing(false)
+    await fetchBarInfo()
+  }
+  catch(err){
+    Alert.alert("Error: could not set bar information.", err.message)
+  }
+}
+
+
   return (
     <View style={styles.container}>
       {/* Header */}
@@ -118,17 +177,58 @@ export default function BarProfileScreen({ route, navigation }) {
         {/* Other info */}
         <View style={styles.card}>
           <Text style={styles.cardTitle}>DEALS</Text>
-          <Text style={styles.cardText}>{bar.deals || '$1 Fishbowl'}</Text>
+          {isBarOwner && editing ? (
+            <TextInput
+            style = {[styles.cardText, {borderBottomWidth:1, borderColor: '#000'}]}
+            value = {deals}
+            onChangeText = {setDeals}
+            placeholder='Enter deals'
+            placeholderTextColor="#898989ff"
+            />
+          
+          ):
+            <Text style={styles.cardText}>{deals}</Text>
+          }
         </View>
 
         <View style={styles.card}>
           <Text style={styles.cardTitle}>Hours</Text>
-          <Text style={styles.cardText}>{bar.hours || '24/7'}</Text>
+          {isBarOwner && editing ? (
+            <TextInput
+            style = {[styles.cardText, {borderBottomWidth:1, borderColor: '#000'}]}
+            value = {hours}
+            onChangeText = {setHours}
+            placeholder='Enter hours'
+            placeholderTextColor="#898989ff"
+            />
+          
+          ):
+            <Text style={styles.cardText}>{hours}</Text>
+          }
         </View>
 
         <View style={styles.card}>
           <Text style={styles.cardText}>No memories...{'\n'}yet.</Text>
         </View>
+
+        {isBarOwner && (
+          <View style = {{flexDirection:'row', gap:10, marginBottom: 15}}>
+            {editing? (
+              <>
+                <TouchableOpacity style={styles.submitButton} onPress = {updateBarInfo}>
+                  <Text style = {styles.modalButtonText}>Save</Text>
+                </TouchableOpacity>
+                <TouchableOpacity style={styles.cancelButton} onPress = {()=> setEditing(false)}>
+                  <Text style = {styles.modalButtonText}>Cancel</Text>
+                </TouchableOpacity>
+              </>
+            ):(
+               <TouchableOpacity style={styles.submitButton} onPress = {() => setEditing(true)}>
+                  <Text style = {styles.modalButtonText}>Edit</Text>
+                </TouchableOpacity>
+            )}
+          </View>
+        )}
       </ScrollView>
 
       {/* WAIT TIME INPUT MODAL */}
@@ -138,7 +238,12 @@ export default function BarProfileScreen({ route, navigation }) {
             <Text style={styles.modalTitle}>How long is the line?</Text>
             <Text style={styles.modalSubtitle}>Help others know the wait time</Text>
             
-            <View style={styles.sliderContainer}>
+            <WaitTimeSlider
+              value = {timeValue}
+              onChange = {setTimeValue}
+              getLabel={getWaitTimeLabel}
+            />
+            {/* <View style={styles.sliderContainer}>
               <Slider
                 style={styles.slider}
                 minimumValue={0}
@@ -152,7 +257,7 @@ export default function BarProfileScreen({ route, navigation }) {
               />
               <Text style={styles.timeValueText}>{timeValue} min</Text>
               <Text style={styles.timeLabelText}>{getWaitTimeLabel(timeValue)}</Text>
-            </View>
+            </View> */}
 
             <View style={styles.modalButtons}>
               <TouchableOpacity 
@@ -178,6 +283,32 @@ export default function BarProfileScreen({ route, navigation }) {
           </View>
         </View>
       </Modal>
+
+      {!isBarOwner && (
+        <TouchableOpacity
+        style = {styles.floatingButton}
+        onPress={async() => {
+          try{
+            console.log(bar.id)
+            const token = await AsyncStorage.getItem("token")
+            const res = await api.post(
+              "/select-bar",
+              {barId: bar.id},
+              {headers: {Authorization: `Bearer ${token}`}}
+            )
+            if (res.status = 200){
+              setIsBarOwner(true)
+            }
+            console.log(res.status)
+          
+          }catch(err){
+            Alert.alert("Failed to link bar", err.message, err.response?.data)
+          }
+        }}
+        >
+          <Ionicons name = "link-outline" size={24} color ="#fff"/>
+        </TouchableOpacity>
+      )}
     </View>
   );
 }
@@ -314,13 +445,40 @@ const styles = StyleSheet.create({
   },
   submitButton: {
     backgroundColor: '#7EA0FF',
+    borderRadius:14,
+    padding:10,
+    shadowColor:'#000',
+    shadowOpacity:0.3,
+    shadowOffset:{width:0,height:3},
+    elevation:6,
+    borderWidth:1,
   },
   cancelButton: {
     backgroundColor: '#555',
+    borderRadius:14,
+    padding:10,
+    shadowColor:'#000',
+    shadowOpacity:0.3,
+    shadowOffset:{width:0,height:3},
+    elevation:6,
+    borderWidth:1,
   },
   modalButtonText: {
     color: '#fff',
     fontSize: 16,
     fontWeight: 'bold',
   },
+  floatingButton: {
+    position: 'absolute', 
+    bottom: 30,
+    right: 20, 
+    width:50,
+    height:50,
+    borderRadius:25,
+    shadowColor:'#000',
+    shadowOffset:{width:0, height:2},
+    shadowOpacity:0.3,
+    shadowRadius:4,
+    elevation:5,
+  }
 });

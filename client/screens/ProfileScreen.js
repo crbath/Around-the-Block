@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { View, Text, StyleSheet, Image, TouchableOpacity, FlatList, ActivityIndicator, ScrollView } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import * as ImagePicker from 'expo-image-picker'
-import {useNavigation} from '@react-navigation/native'
+import { useNavigation } from '@react-navigation/native'
 import api from '../api/api'
 
 export default function ProfileScreen() {
@@ -11,29 +11,39 @@ export default function ProfileScreen() {
   //eventually navigate to friends page
   const navigation = useNavigation();
 
-  useEffect(()=> {
+  useEffect(() => {
     fetchProfile()
   }, [])
 
   const fetchProfile = async () => {
-    //set basic profile -- NEED TO IMPLEMENT FETCH FUNCTION... HOW TO FETCH FROM MONGO? WORKING ON SOMETHING ATM
-    setProfile({username: 'User 1', birthday: '1/1/0000', friends: []
-    })
-    setLoading(false)
-  
+    try {
+      setLoading(true)
+      const token = await AsyncStorage.getItem('token')
+
+      const res = await api.get('/profile', {
+        headers: { Authorization: `Bearer ${token}` },
+      })
+
+      setProfile(res.data)
+
+    } catch (err) {
+      setProfile(null)
+    }
+    finally { setLoading(false) }
+
   }
 
   const handleUpload = async () => {
     const permission = await ImagePicker.requestMediaLibraryPermissionAsync()
     if (!permission.granted) return
-    
+
     const result = await ImagePicker.launchImageLibraryAsync({
       mediaTypes: ImagePicker.launchImageLibraryAsync,
       allowsEditing: true,
       quality: 1,
     })
 
-    if (!result.canceled){
+    if (!result.canceled) {
       //upload this image somewhere... should we be using firebase???
     }
   }
@@ -43,65 +53,69 @@ export default function ProfileScreen() {
     console.log('should nav to friends page')
   }
 
-  if (loading){
+  if (loading) {
     return (
       <View style={styles.container}>
-        <ActivityIndicator color = "#fff" size="large"/>
+        <ActivityIndicator color="#fff" size="large" />
       </View>
     )
   }
 
   //if no profile loaded, basic message to report error
-  if (!profile){
+  if (!profile) {
     return (
       <View style={styles.container}>
-        <Text style = {styles.text}>Failed to load profile</Text>
+        <Text style={styles.text}>Failed to load profile</Text>
       </View>
     )
   }
 
   return (
     // <ScrollView contentContainerStyle={styles.container}>
-    <View style={[styles.container, {paddingTop:60}]}>
-     <Text style={[styles.text, {paddingBottom:20, textAlign:'center'}]}>Your Profile</Text>
+    <View style={[styles.container, { paddingTop: 60 }]}>
+      <Text style={[styles.text, { paddingBottom: 20, textAlign: 'center' }]}>Your Profile</Text>
 
-    <View style={styles.container}>
-  
-      <View style={styles.header}>
-        <TouchableOpacity onPress={handleUpload}>
-          {profile.profilePicture?
-             <Image source= {{uri: profile.profilePicture}} style = {styles.profilePic}/>
+      <View style={styles.container}>
+
+        <View style={styles.header}>
+          <TouchableOpacity onPress={handleUpload}>
+            {profile.profilePicture ?
+              <Image source={{ uri: profile.profilePicture }} style={styles.profilePic} />
               :
-             <Text style={{color:'white'}}>Insert Image Here</Text>
-          }
-        </TouchableOpacity>
-
-        <View style={styles.info}>
-          <Text style={styles.username}>{profile.username}</Text>
-          <Text style={styles.age}>Birthday: {profile.birthday}</Text>
-        
-          <TouchableOpacity onPress={handleFriendPress}>
-            <Text style = {styles.friends}>
-              {profile.friends?.length || 0} Friends
-            </Text>
+              <View style={styles.profilePlaceholder}>
+                <Text style={{ color: 'white', textAlign: 'center', fontSize: 10 }}>Insert Image Here</Text>
+              </View>
+            }
           </TouchableOpacity>
-        
+
+          <View style={styles.info}>
+            <View style={styles.card}>
+              <Text style={styles.username}>{profile.username}</Text>
+              <Text style={styles.age}>Birthday: {profile.birthday}</Text>
+
+              <TouchableOpacity onPress={handleFriendPress}>
+                <Text style={styles.friends}>
+                  {profile.friends?.length || 0} Friends
+                </Text>
+              </TouchableOpacity>
+            </View>
+
+          </View>
+
+
         </View>
-
-
+        <Text style={[styles.text, { paddingTop: 20, textAlign: 'center' }]}>Memories here</Text>
+        <ScrollView contentContainerStyle={styles.container}>
+          {/* grid of images -- need to figure out how we're storing images */}
+        </ScrollView>
       </View>
-      <Text style={[styles.text, {paddingTop:20, textAlign:'center'}]}>Memories here</Text>
-      <ScrollView contentContainerStyle={styles.container}>
-        {/* grid of images -- need to figure out how we're storing images */}
-      </ScrollView>
-    </View>
     </View>
     // </ScrollView>
   );
 }
 
 const styles = StyleSheet.create({
-    container: {
+  container: {
     flex: 1,
     backgroundColor: '#0B0D17',
     padding: 20,
@@ -112,14 +126,25 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   profilePic: {
-    width: 100,
-    height: 100,
-    borderRadius: 50,
+    width: 120,
+    height: 120,
+    borderRadius: 60,
     borderWidth: 2,
     borderColor: '#fff',
   },
+  profilePlaceholder: {
+    width: 120,
+    height: 120,
+    borderRadius: 60,
+    borderWidth: 2,
+    borderColor: '#fff',
+    justifyContent: 'center',
+    alignItems: 'center',
+    backgroundColor: '#333',
+  },
   info: {
     marginLeft: 20,
+    justifyContent: 'center'
   },
   username: {
     color: '#fff',
@@ -139,5 +164,14 @@ const styles = StyleSheet.create({
     color: '#fff',
     fontSize: 24,
     fontWeight: 'bold',
+  },
+  card: {
+    backgroundColor: '#5B4DB7',
+    width: '100%',
+    borderRadius: 30,
+    paddingVertical: 15,
+    paddingHorizontal: 40,
+    alignItems: 'flex-start',
+    marginBottom: 15,
   },
 });
