@@ -20,7 +20,9 @@ mongoose.connect(process.env.MONGO_URI)
 const userSchema = new mongoose.Schema({
   username: { type: String, required: true, unique: true },
   password: { type: String, required: true },
-  birthday: { type: String }
+  birthday: { type: String },
+  barAcc: {type: Boolean},
+  bar: {type: String}
 });
 
 //bar schema for inputting wait times
@@ -29,6 +31,9 @@ const barSchema = new mongoose.Schema({
   barName: {type:String},
   latitude: Number,
   longitude: Number,
+  linked: {type: Boolean, default: false},
+  deals: {type:String},
+  hours: {type:String},
   timeEntries: [
     {  
       userId: {type: mongoose.Schema.Types.ObjectId, ref:"User", required: true},
@@ -37,6 +42,17 @@ const barSchema = new mongoose.Schema({
     }
   ]
 })
+
+
+
+const barPostSchema = new mongoose.Schema({
+  barId: {type:String, ref:'BarTime', required: true},
+  title: {type:String, required: true},
+  content: {type: String},
+  date: {type:Date, default: Date.now},
+})
+
+const BarPost = mongoose.model("BarPost", barPostSchema)
 
 const BarTime = mongoose.model("BarTime", barSchema)
 
@@ -58,7 +74,8 @@ app.get("/", (req, res) => {
 });
 
 app.get("/profile", verifyToken, async (req, res) => {
-  const user = await User.findById(req.userId).select("-password");
+  const user = await User.findById(req.userId)
+  .select("-password")
   res.json(user);
 });
 
@@ -128,6 +145,7 @@ app.post("/bartime", verifyToken, async (req, res) => {
       barName,
       latitude,
       longitude,
+      linked: false,
       timeEntries: []
     })
   }
@@ -193,6 +211,9 @@ app.get("/bartime/:barId", async(req, res) => {
       average: Number(weightedAverage),
     })
 
+    
+
+
     //option 2, remove entirely from db (Maybe we do it every few weeks and just store trends?)
     /*
      bar.timeEntries = bar.timeEntries.filter(
@@ -225,6 +246,7 @@ app.get("/bartime/:barId", async(req, res) => {
   }
 })
 
+
 app.get("/bars", async (req, res) => {
   try {
     const bars = await BarTime.aggregate([
@@ -253,6 +275,116 @@ app.get("/bars", async (req, res) => {
   }
 });
 
+//TO LINK BAR TO A BAR-ACCOUNT
+app.post("/select-bar", verifyToken, async(req, res) => {
+      try{
+      const {barId} = req.body
+
+      const bar = await BarTime.findOne({barId})
+      if(!bar) return res.status(404).json({message:"Bar not found"
+      })
+
+      if (bar.linked){
+        return res.status(400).json({message:"This bar is already linked to another account."})
+      }
+      bar.linked = true;
+      await bar.save()
+
+      const user = await User.findById(req.userId)
+      if (user.barAcc){
+        return res.status(400).json({message:"This account is already linked to another bar!"})
+ 
+      }
+      user.barAcc = true
+
+      console.log("Assigning bar to user:", bar.barId, typeof bar.barId);
+
+      user.bar = bar.barId
+
+      await user.save()
+
+
+      res.json({message: "Bar linked", bar: user.bar})
+
+    }catch(err){
+      console.error(err)
+      res.status(500).json({message: "Error linking account!"})
+    }
+    })
+
+    app.post("/bar-posts", verifyToken, async(req, res)=>{
+      try{
+        const {title, content} = req.body
+
+        const user = await User.findById(req.userId)
+        if (!user.barAcc || !user.bar){
+          return res.status(403).json({message:"You are not the bar account owner"})
+        }
+        const newPost = new BarPost({
+          barId: user.bar,
+          title,
+          content
+        })
+
+        await newPost.save()
+        res.status(201).json({message:"Post created", post: newPost})
+
+      }catch(err){
+        console.error(err)
+        res.status(500).json({message:"Error creating post"})
+      }
+    })
+
+    app.get("/bar-posts/:barId", async(req,res) =>{
+      try{
+        const posts = await BarPost.find({barId: req.params.barId})
+        res.json(posts)
+      }
+      catch(err){
+        console.error(err)
+        res.status.json({message: "Error fetching posts"})
+      }
+    })
+
+  app.post('/update-bar', verifyToken, async (req, res)=> {
+  try{
+    const {barId, deals, hours} = req.body
+    
+    const user = await User.findById(req.userId)
+   
+    const bar = await BarTime.findOne({barId})
+    if(!bar) return res.status(404).json({message:"Bar not found"})
+
+    console.log("THIS INFO HERE:", user.bar, bar.barId)
+
+    //  if (!user.barAcc || user.bar !== bar.barId){
+    //       return res.status(403).json({message:"You are not the bar account owner"})
+    //  }  
+    if (deals !== undefined) bar.deals = deals
+    if (hours !== undefined) bar.hours = hours
+
+    await bar.save()
+    res.json({message: "Success!"}, barId)
+  }catch(err){
+    console.error(err)
+    res.status(500).json({message:"Error updating information"})
+  }
+
+})
+
+app.get('/bar/:barId', async(req, res)=>{
+  try{
+    console.log(req.params.barId)
+    const bar = await BarTime.findOne({barId: req.params.barId})
+    if (!bar) return res.status(404).json({message: "Couldn't find bar in db"})
+    res.json({
+      deals: bar.deals,
+      hours: bar.hours,
+  })  
+  }catch(err){
+    res.status(500).json({message: "Error fetching bar"})
+  }
+})
 
 const PORT = process.env.PORT || 5000;
 app.listen(PORT, () => {
