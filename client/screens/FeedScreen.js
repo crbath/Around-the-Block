@@ -118,15 +118,6 @@ export default function FeedScreen({ navigation }) {
         //  <RefreshControl refreshing={refreshing} onRefresh={handleRefresh} tintColor="#7EA0FF" />
         //}
       />
-
-      {/* floating plus button to create new post */}
-      <TouchableOpacity
-        style={styles.fab}
-        onPress={() => navigation.navigate('CreatePost')}
-        activeOpacity={0.8}
-      >
-        <Ionicons name="add" size={32} color="#FFFFFF" />
-      </TouchableOpacity>
     </View>
   );
 }
@@ -146,13 +137,12 @@ const styles = StyleSheet.create({
   },
   header: {
     flexDirection: 'row',
-    justifyContent: 'center',
+    justifyContent: 'space-between',
     alignItems: 'center',
     paddingTop: 50,
     paddingBottom: 16,
     paddingHorizontal: 16,
     backgroundColor: '#0B0D17',
-    position: 'relative',
   },
   headerTitle: {
     fontSize: 24,
@@ -161,26 +151,5 @@ const styles = StyleSheet.create({
   },
   friendsButton: {
     padding: 8,
-    position: 'absolute',
-    right: 16,
-  },
-  fab: {
-    position: 'absolute',
-    bottom: 30,
-    right: 20,
-    width: 60,
-    height: 60,
-    borderRadius: 30,
-    backgroundColor: '#7EA0FF',
-    alignItems: 'center',
-    justifyContent: 'center',
-    shadowColor: '#000',
-    shadowOffset: {
-      width: 0,
-      height: 4,
-    },
-    shadowOpacity: 0.3,
-    shadowRadius: 8,
-    elevation: 8,
   },
 });
