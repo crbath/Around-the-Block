@@ -6,16 +6,22 @@
 import { Colors } from '@/constants/theme';
 import { useColorScheme } from '@/hooks/use-color-scheme';
 
+type Theme = 'light' | 'dark';
+
+type ThemeProps = { light?: string; dark?: string };
+
+type ColorName = keyof typeof Colors.light & keyof typeof Colors.dark;
+
 export function useThemeColor(
-  props: { light?: string; dark?: string },
-  colorName: keyof typeof Colors.light & keyof typeof Colors.dark
+  props: ThemeProps,
+  colorName: ColorName
 ) {
-  const theme = useColorScheme() ?? 'light';
-  const colorFromProps = props[theme];
+  const theme: Theme = (useColorScheme() as Theme) ?? 'light';
+  const colorFromProps = (props as Record<Theme, string | undefined>)[theme];
 
   if (colorFromProps) {
     return colorFromProps;
   } else {
-    return Colors[theme][colorName];
+    return (Colors as Record<Theme, Record<ColorName, string>>)[theme][colorName];
   }
 }
