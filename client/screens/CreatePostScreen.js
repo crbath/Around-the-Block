@@ -62,7 +62,24 @@ export default function CreatePostScreen({ navigation }) {
       }
 
       // Create post with content and image URL
-      await createPost(content.trim(), imageUrl);
+      const postContent = String(content || '').trim();
+      const postImageUrl = imageUrl || '';
+      
+      console.log('Creating post with:', { 
+        content: postContent, 
+        contentLength: postContent.length,
+        imageUrl: postImageUrl,
+        imageUrlLength: postImageUrl.length
+      });
+      
+      if (!postContent) {
+        Alert.alert('Error', 'Please enter some content for your post');
+        setUploading(false);
+        return;
+      }
+      
+      const response = await createPost(postContent, postImageUrl);
+      console.log('Post created successfully:', response.data);
 
       // Reset form
       setContent('');
@@ -73,7 +90,12 @@ export default function CreatePostScreen({ navigation }) {
       Alert.alert('Success', 'Post created successfully!');
     } catch (error) {
       console.error('Error creating post:', error);
-      Alert.alert('Error', 'Failed to create post. Please try again.');
+      console.error('Error response data:', error.response?.data);
+      console.error('Error response status:', error.response?.status);
+      console.error('Error response headers:', error.response?.headers);
+      console.error('Full error:', JSON.stringify(error.response?.data, null, 2));
+      const errorMessage = error.response?.data?.message || error.message || 'Failed to create post. Please try again.';
+      Alert.alert('Error', errorMessage);
     } finally {
       setUploading(false);
     }

@@ -76,11 +76,18 @@ const User = mongoose.model("User", userSchema);
 
 const verifyToken = (req, res, next) => {
   const token = req.headers.authorization?.split(' ')[1];
-  if (!token) return res.status(401).json({ message: "No token provided" });
+  if (!token) {
+    console.log("No token provided in request");
+    return res.status(401).json({ message: "No token provided" });
+  }
 
   jwt.verify(token, process.env.JWT_SECRET, (err, decoded) => {
-    if (err) return res.status(403).json({ message: "Invalid token" });
+    if (err) {
+      console.log("Token verification failed:", err.message);
+      return res.status(403).json({ message: "Invalid token" });
+    }
     req.userId = decoded.id;
+    console.log("Token verified, userId:", req.userId);
     next();
   });
 };
@@ -298,8 +305,18 @@ app.post("/posts", verifyToken, async (req, res) => {
   try {
     const { content, imageUrl } = req.body;
     
-    if (!content || content.trim() === "") {
+    console.log("Create post request body:", req.body);
+    console.log("Content:", content, "Type:", typeof content);
+    console.log("ImageUrl:", imageUrl);
+    
+    // Validate content
+    if (!content) {
       return res.status(400).json({ message: "Post content is required" });
+    }
+    
+    const contentStr = String(content).trim();
+    if (contentStr === "") {
+      return res.status(400).json({ message: "Post content cannot be empty" });
     }
 
     const user = await User.findById(req.userId);
@@ -310,7 +327,7 @@ app.post("/posts", verifyToken, async (req, res) => {
     const newPost = new Post({
       userId: req.userId,
       username: user.username,
-      content: content.trim(),
+      content: contentStr,
       imageUrl: imageUrl || "",
       profilePicUrl: user.profilePicUrl || "",
       likes: 0,
