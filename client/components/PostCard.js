@@ -1,36 +1,43 @@
   import React, { useState } from 'react';
 import { View, Text, Image, StyleSheet, TouchableOpacity } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
+import { likePost } from '../api/api';
 
 // PostCard component displays a single post in the feed
 export default function PostCard({ post }) {
   // state to track if this post is liked and the like count
-  const [liked, setLiked] = useState(false);
-  const [likeCount, setLikeCount] = useState(0);
+  const [liked, setLiked] = useState(post.liked || false);
+  const [likeCount, setLikeCount] = useState(post.likeCount || 0);
 
   // component first loads
   React.useEffect(() => {
-    if (post.liked) {
-      setLiked(true);
+    if (post.liked !== undefined) {
+      setLiked(post.liked);
     }
-    if (post.likeCount) {
+    if (post.likeCount !== undefined) {
       setLikeCount(post.likeCount);
     }
-    if (post.commentCount) {
-      // we'll show this but not make it interactive yet
-    }
-  }, []);
+  }, [post.liked, post.likeCount]);
 
   // handle when user clicks like button
-  function handleLike() {
-    if (liked) {
-      // if already liked, unlike it
-      setLiked(false);
-      setLikeCount(likeCount - 1);
-    } else {
-      // if not liked, like it
-      setLiked(true);
-      setLikeCount(likeCount + 1);
+  async function handleLike() {
+    // Store previous state for potential revert
+    const previousLiked = liked;
+    const previousLikeCount = likeCount;
+    
+    try {
+      // Optimistically update UI
+      const newLiked = !liked;
+      setLiked(newLiked);
+      setLikeCount(newLiked ? likeCount + 1 : Math.max(0, likeCount - 1));
+
+      // Call API to update like
+      await likePost(post.id);
+    } catch (error) {
+      // Revert on error
+      setLiked(previousLiked);
+      setLikeCount(previousLikeCount);
+      console.error('Error liking post:', error);
     }
   }
 
@@ -51,12 +58,16 @@ export default function PostCard({ post }) {
     <TouchableOpacity style={styles.card} onPress={handlePostPress} activeOpacity={0.8}>
       {/* header section with user profile icon and info */}
       <View style={styles.header}>
-        {/* profile circle with first letter of username */}
-        <View style={styles.avatar}>
-          <Text style={styles.avatarText}>
-            {post.username ? post.username[0].toUpperCase() : '?'}
-          </Text>
-        </View>
+        {/* profile circle with first letter of username or profile pic */}
+        {post.profilePicUrl ? (
+          <Image source={{ uri: post.profilePicUrl }} style={styles.avatarImage} />
+        ) : (
+          <View style={styles.avatar}>
+            <Text style={styles.avatarText}>
+              {post.username ? post.username[0].toUpperCase() : '?'}
+            </Text>
+          </View>
+        )}
         {/* username and timestamp (?) */}
         <View>
           <Text style={styles.username}>{post.username}</Text>
@@ -94,7 +105,7 @@ export default function PostCard({ post }) {
             } else {
               handleComment();
             }
-          }} 
+          }}
           style={styles.button}
         >
           <Ionicons name="chatbubble-outline" size={20} color="#9BA1A6" />
@@ -127,6 +138,12 @@ const styles = StyleSheet.create({
     marginRight: 12,
     alignItems: 'center',
     justifyContent: 'center',
+  },
+  avatarImage: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    marginRight: 12,
   },
   avatarText: {
     color: '#FFFFFF',

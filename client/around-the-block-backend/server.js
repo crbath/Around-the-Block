@@ -27,7 +27,9 @@ const userSchema = new mongoose.Schema({
   password: { type: String, required: true },
   birthday: { type: String },
   barAcc: {type: Boolean},
-  bar: {type: String}
+  bar: {type: String},
+  profilePicUrl: { type: String, default: "" },
+  friends: [{ type: mongoose.Schema.Types.ObjectId, ref: "User" }]
 });
 
 //bar schema for inputting wait times
@@ -48,8 +50,6 @@ const barSchema = new mongoose.Schema({
   ]
 })
 
-
-
 const barPostSchema = new mongoose.Schema({
   barId: {type:String, ref:'BarTime', required: true},
   title: {type:String, required: true},
@@ -59,17 +59,36 @@ const barPostSchema = new mongoose.Schema({
 
 const BarPost = mongoose.model("BarPost", barPostSchema)
 
-const BarTime = mongoose.model("BarTime", barSchema)
+// Post Schema
+const postSchema = new mongoose.Schema({
+  userId: { type: mongoose.Schema.Types.ObjectId, ref: "User", required: true },
+  username: { type: String, required: true },
+  content: { type: String, required: true },
+  imageUrl: { type: String, default: "" },
+  profilePicUrl: { type: String, default: "" },
+  likes: { type: Number, default: 0 },
+  likedBy: [{ type: mongoose.Schema.Types.ObjectId, ref: "User" }],
+  createdAt: { type: Date, default: Date.now }
+});
 
+const BarTime = mongoose.model("BarTime", barSchema);
+const Post = mongoose.model("Post", postSchema);
 const User = mongoose.model("User", userSchema);
 
 const verifyToken = (req, res, next) => {
   const token = req.headers.authorization?.split(' ')[1];
-  if (!token) return res.status(401).json({ message: "No token provided" });
+  if (!token) {
+    console.log("No token provided in request");
+    return res.status(401).json({ message: "No token provided" });
+  }
 
   jwt.verify(token, process.env.JWT_SECRET, (err, decoded) => {
-    if (err) return res.status(403).json({ message: "Invalid token" });
+    if (err) {
+      console.log("Token verification failed:", err.message);
+      return res.status(403).json({ message: "Invalid token" });
+    }
     req.userId = decoded.id;
+    console.log("Token verified, userId:", req.userId);
     next();
   });
 };
@@ -84,6 +103,135 @@ app.get("/profile", verifyToken, async (req, res) => {
   res.json(user);
 });
 
+// Update profile (including profile picture)
+app.put("/profile", verifyToken, async (req, res) => {
+  try {
+    const { profilePicUrl } = req.body;
+    const user = await User.findById(req.userId);
+    
+    if (!user) {
+      return res.status(404).json({ message: "User not found" });
+    }
+
+    if (profilePicUrl !== undefined) {
+      user.profilePicUrl = profilePicUrl;
+    }
+
+    await user.save();
+    res.json({ message: "Profile updated successfully", user });
+  } catch (error) {
+    console.error("Error updating profile:", error);
+    res.status(500).json({ message: "Error updating profile" });
+  }
+});
+
+// Get user's friends
+app.get("/friends", verifyToken, async (req, res) => {
+  try {
+    const user = await User.findById(req.userId).populate('friends', 'username profilePicUrl birthday');
+    if (!user) {
+      return res.status(404).json({ message: "User not found" });
+    }
+    // Transform friends data to include id field
+    const friends = user.friends.map(friend => ({
+      id: friend._id.toString(),
+      username: friend.username,
+      name: friend.username, // Use username as name if no separate name field
+      profilePicUrl: friend.profilePicUrl,
+      birthday: friend.birthday
+    }));
+    res.json(friends);
+  } catch (error) {
+    console.error("Error fetching friends:", error);
+    res.status(500).json({ message: "Error fetching friends" });
+  }
+});
+
+// Get all users (excluding current user and existing friends) - for adding friends
+app.get("/users", verifyToken, async (req, res) => {
+  try {
+    const currentUser = await User.findById(req.userId);
+    if (!currentUser) {
+      return res.status(404).json({ message: "User not found" });
+    }
+
+    // Get all users except current user and existing friends
+    // Convert to ObjectIds for proper MongoDB comparison
+    const friendIds = (currentUser.friends || []).map(id => 
+      typeof id === 'string' ? new mongoose.Types.ObjectId(id) : id
+    );
+    friendIds.push(new mongoose.Types.ObjectId(req.userId));
+
+    console.log("Current userId:", req.userId);
+    console.log("Friend IDs to exclude:", friendIds);
+    
+    const users = await User.find({
+      _id: { $nin: friendIds }
+    }).select('username profilePicUrl birthday');
+
+    console.log("Found users:", users.length);
+
+    // Transform users data
+    const usersList = users.map(user => ({
+      id: user._id.toString(),
+      username: user.username,
+      name: user.username,
+      profilePicUrl: user.profilePicUrl || "",
+      birthday: user.birthday || ""
+    }));
+
+    res.json(usersList);
+  } catch (error) {
+    console.error("Error fetching users:", error);
+    res.status(500).json({ message: "Error fetching users", error: error.message });
+  }
+});
+
+// Add a friend by username
+app.post("/friends", verifyToken, async (req, res) => {
+  try {
+    const { username } = req.body;
+    if (!username) {
+      return res.status(400).json({ message: "Username is required" });
+    }
+
+    const currentUser = await User.findById(req.userId);
+    if (!currentUser) {
+      return res.status(404).json({ message: "User not found" });
+    }
+
+    // Find the friend by username
+    const friend = await User.findOne({ username });
+    if (!friend) {
+      return res.status(404).json({ message: "User not found" });
+    }
+
+    // Check if trying to add yourself
+    if (friend._id.toString() === req.userId) {
+      return res.status(400).json({ message: "Cannot add yourself as a friend" });
+    }
+
+    // Check if already friends
+    if (currentUser.friends.includes(friend._id)) {
+      return res.status(400).json({ message: "Already friends with this user" });
+    }
+
+    // Add friend
+    currentUser.friends.push(friend._id);
+    await currentUser.save();
+
+    res.json({ message: "Friend added successfully", friend: {
+      id: friend._id.toString(),
+      username: friend.username,
+      name: friend.username,
+      profilePicUrl: friend.profilePicUrl,
+      birthday: friend.birthday
+    }});
+  } catch (error) {
+    console.error("Error adding friend:", error);
+    res.status(500).json({ message: "Error adding friend" });
+  }
+});
 
 // Signup Route
 app.post("/signup", async (req, res) => {
@@ -126,7 +274,7 @@ app.post("/login", async (req, res) => {
     // Create a token
     const token = jwt.sign({ id: user._id }, process.env.JWT_SECRET, { expiresIn: "7d" });
 
-    res.json({ message: "Login successful", token });
+    res.json({ message: "Login successful", token, userId: user._id.toString() });
   } catch (error) {
     res.status(500).json({ error: error.message });
   }
@@ -279,6 +427,177 @@ app.get("/bars", async (req, res) => {
     res.status(500).json({ message: "Error fetching bars" });
   }
 });
+
+// ========== POST ROUTES ==========
+
+// Create a new post
+app.post("/posts", verifyToken, async (req, res) => {
+  try {
+    const { content, imageUrl } = req.body;
+    
+    console.log("Create post request body:", req.body);
+    console.log("Content:", content, "Type:", typeof content);
+    console.log("ImageUrl:", imageUrl);
+    
+    // Validate content
+    if (!content) {
+      return res.status(400).json({ message: "Post content is required" });
+    }
+    
+    const contentStr = String(content).trim();
+    if (contentStr === "") {
+      return res.status(400).json({ message: "Post content cannot be empty" });
+    }
+
+    const user = await User.findById(req.userId);
+    if (!user) {
+      return res.status(404).json({ message: "User not found" });
+    }
+
+    const newPost = new Post({
+      userId: req.userId,
+      username: user.username,
+      content: contentStr,
+      imageUrl: imageUrl || "",
+      profilePicUrl: user.profilePicUrl || "",
+      likes: 0,
+      likedBy: []
+    });
+
+    await newPost.save();
+    res.status(201).json({ message: "Post created successfully", post: newPost });
+  } catch (error) {
+    console.error("Error creating post:", error);
+    res.status(500).json({ message: "Error creating post" });
+  }
+});
+
+// Get all posts (for feed)
+app.get("/posts", async (req, res) => {
+  try {
+    const posts = await Post.find({})
+      .sort({ createdAt: -1 })
+      .limit(50)
+      .lean();
+
+    // Format posts for frontend
+    const formattedPosts = posts.map(post => ({
+      id: post._id.toString(),
+      userId: post.userId.toString(),
+      username: post.username,
+      text: post.content,
+      image: post.imageUrl || null,
+      profilePicUrl: post.profilePicUrl || "",
+      time: getTimeAgo(post.createdAt),
+      liked: false, // Will be set by frontend based on user
+      likeCount: post.likes || 0,
+      commentCount: 0 // Can be added later
+    }));
+
+    res.json(formattedPosts);
+  } catch (error) {
+    console.error("Error fetching posts:", error);
+    res.status(500).json({ message: "Error fetching posts" });
+  }
+});
+
+// Get posts by a specific user
+app.get("/posts/user/:userId", async (req, res) => {
+  try {
+    const { userId } = req.params;
+    const posts = await Post.find({ userId })
+      .sort({ createdAt: -1 })
+      .limit(50)
+      .lean();
+
+    const formattedPosts = posts.map(post => ({
+      id: post._id.toString(),
+      userId: post.userId.toString(),
+      username: post.username,
+      text: post.content,
+      image: post.imageUrl || null,
+      profilePicUrl: post.profilePicUrl || "",
+      time: getTimeAgo(post.createdAt),
+      liked: false,
+      likeCount: post.likes || 0,
+      commentCount: 0
+    }));
+
+    res.json(formattedPosts);
+  } catch (error) {
+    console.error("Error fetching user posts:", error);
+    res.status(500).json({ message: "Error fetching user posts" });
+  }
+});
+
+// Like/unlike a post
+app.post("/posts/:postId/like", verifyToken, async (req, res) => {
+  try {
+    const { postId } = req.params;
+    const post = await Post.findById(postId);
+
+    if (!post) {
+      return res.status(404).json({ message: "Post not found" });
+    }
+
+    const userIdStr = req.userId.toString();
+    const likedIndex = post.likedBy.findIndex(id => id.toString() === userIdStr);
+
+    if (likedIndex === -1) {
+      // User hasn't liked, so like it
+      post.likedBy.push(req.userId);
+      post.likes += 1;
+    } else {
+      // User has liked, so unlike it
+      post.likedBy.splice(likedIndex, 1);
+      post.likes = Math.max(0, post.likes - 1);
+    }
+
+    await post.save();
+    res.json({ 
+      message: "Like updated", 
+      likes: post.likes,
+      liked: likedIndex === -1
+    });
+  } catch (error) {
+    console.error("Error updating like:", error);
+    res.status(500).json({ message: "Error updating like" });
+  }
+});
+
+// Delete a post (only by the owner)
+app.delete("/posts/:postId", verifyToken, async (req, res) => {
+  try {
+    const { postId } = req.params;
+    const post = await Post.findById(postId);
+
+    if (!post) {
+      return res.status(404).json({ message: "Post not found" });
+    }
+
+    if (post.userId.toString() !== req.userId.toString()) {
+      return res.status(403).json({ message: "You can only delete your own posts" });
+    }
+
+    await Post.findByIdAndDelete(postId);
+    res.json({ message: "Post deleted successfully" });
+  } catch (error) {
+    console.error("Error deleting post:", error);
+    res.status(500).json({ message: "Error deleting post" });
+  }
+});
+
+// Helper function to format time ago
+function getTimeAgo(date) {
+  const now = new Date();
+  const diffInSeconds = Math.floor((now - date) / 1000);
+  
+  if (diffInSeconds < 60) return `${diffInSeconds}s`;
+  if (diffInSeconds < 3600) return `${Math.floor(diffInSeconds / 60)}m`;
+  if (diffInSeconds < 86400) return `${Math.floor(diffInSeconds / 3600)}h`;
+  if (diffInSeconds < 604800) return `${Math.floor(diffInSeconds / 86400)}d`;
+  return `${Math.floor(diffInSeconds / 604800)}w`;
+}
 
 //TO LINK BAR TO A BAR-ACCOUNT
 app.post("/select-bar", verifyToken, async(req, res) => {

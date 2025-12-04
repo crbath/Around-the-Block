@@ -2,7 +2,8 @@ import React, { useState } from 'react';
 import { View, Text, StyleSheet, TextInput, TouchableOpacity, Image, Alert } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import * as ImagePicker from 'expo-image-picker';
-import api from '../../api/api';
+import { createPost } from '../../api/api';
+import { uploadPostImage } from '../../utils/firebase';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
 export default function CreatePostScreen({ navigation }) {
@@ -30,27 +31,47 @@ export default function CreatePostScreen({ navigation }) {
   }
 
   async function handleSubmit() {
-    if (!text.trim() && !image) {
-      Alert.alert('Empty post', 'Please add some text or an image to your post.');
+    if (!text.trim()) {
+      Alert.alert('Empty post', 'Please add some text to your post.');
       return;
     }
 
     setSubmitting(true);
     try {
-      const user = await AsyncStorage.getItem('user');
-      const username = user ? JSON.parse(user) : 'You';
+      let imageUrl = '';
+      
+      // Upload image to Firebase if one was selected
+      if (image) {
+        const userId = await AsyncStorage.getItem('userId') || await AsyncStorage.getItem('user') || 'anonymous';
+        imageUrl = await uploadPostImage(image, userId);
+      }
 
-      const postData = {
-        text: text.trim(),
-        image: image || null,
-        username,
-      };
+      // Create post with content and image URL
+      const postContent = String(text || '').trim();
+      
+      console.log('Creating post with:', { 
+        content: postContent, 
+        contentLength: postContent.length,
+        imageUrl: imageUrl,
+        imageUrlLength: imageUrl.length
+      });
+      
+      const response = await createPost(postContent, imageUrl);
+      console.log('Post created successfully:', response.data);
 
-      await api.post('/posts', postData);
+      // Reset form
+      setText('');
+      setImage(null);
+
+      // Navigate back
       navigation.goBack();
+      Alert.alert('Success', 'Post created successfully!');
     } catch (error) {
       console.error('Error creating post:', error);
-      Alert.alert('Error', 'Failed to create post. Please try again.');
+      console.error('Error response data:', error.response?.data);
+      console.error('Error response status:', error.response?.status);
+      const errorMessage = error.response?.data?.message || error.message || 'Failed to create post. Please try again.';
+      Alert.alert('Error', errorMessage);
     }
     setSubmitting(false);
   }
