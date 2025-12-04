@@ -1,9 +1,10 @@
 import React, { useState, useEffect } from 'react';
-import { View, Text, StyleSheet, Image, TouchableOpacity, ActivityIndicator, ScrollView } from 'react-native';
+import { View, Text, StyleSheet, Image, TouchableOpacity, ActivityIndicator, ScrollView, Alert } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import * as ImagePicker from 'expo-image-picker'
 import { useNavigation } from '@react-navigation/native'
-import api from '../../api/api'
+import { getProfile, updateProfile } from '../../api/api'
+import { uploadProfilePicture } from '../../utils/firebase'
 
 export default function ProfileScreen() {
   const [profile, setProfile] = useState(null)
@@ -15,20 +16,58 @@ export default function ProfileScreen() {
   const fetchProfile = async () => {
     try {
       setLoading(true)
-      const token = await AsyncStorage.getItem('token')
-      const res = await api.get('/profile', { headers: { Authorization: `Bearer ${token}` } })
-      setProfile(res.data)
+      const res = await getProfile()
+      const profileData = res.data
+      setProfile(profileData)
+      
+      // Store userId if we have it
+      if (profileData._id) {
+        await AsyncStorage.setItem('userId', profileData._id.toString())
+      }
     } catch (err) {
-      setProfile(null)
-    } finally { setLoading(false) }
+      console.error('Error fetching profile:', err)
+      // Fallback to basic profile
+      const username = await AsyncStorage.getItem('user')
+      setProfile({username: username || 'User', birthday: '', friends: []})
+    } finally { 
+      setLoading(false) 
+    }
   }
 
   const handleUpload = async () => {
-    const permission = await ImagePicker.requestMediaLibraryPermissionAsync()
-    if (!permission.granted) return
-    const result = await ImagePicker.launchImageLibraryAsync({ mediaTypes: ImagePicker.launchImageLibraryAsync, allowsEditing: true, quality: 1 })
-    if (!result.canceled) {
-      // upload image
+    const permission = await ImagePicker.requestMediaLibraryPermissionsAsync()
+    if (!permission.granted) {
+      Alert.alert('Permission needed', 'Please grant permission to access your photos')
+      return
+    }
+    
+    try {
+      const result = await ImagePicker.launchImageLibraryAsync({
+        mediaTypes: ImagePicker.MediaTypeOptions.Images,
+        allowsEditing: true,
+        aspect: [1, 1],
+        quality: 0.8,
+      })
+
+      if (!result.canceled && result.assets[0]) {
+        const userId = await AsyncStorage.getItem('userId') || profile?._id?.toString() || 'anonymous'
+        const imageUrl = await uploadProfilePicture(result.assets[0].uri, userId)
+        
+        // Update profile with new image URL in the backend
+        try {
+          await updateProfile({ profilePicUrl: imageUrl })
+          setProfile({...profile, profilePicUrl: imageUrl})
+          Alert.alert('Success', 'Profile picture updated!')
+        } catch (updateError) {
+          console.error('Error updating profile in backend:', updateError)
+          // Still update local state even if backend update fails
+          setProfile({...profile, profilePicUrl: imageUrl})
+          Alert.alert('Warning', 'Picture uploaded but may not be saved to profile')
+        }
+      }
+    } catch (error) {
+      console.error('Error uploading profile picture:', error)
+      Alert.alert('Error', 'Failed to upload profile picture')
     }
   }
 
@@ -50,11 +89,11 @@ export default function ProfileScreen() {
       <View style={styles.container}>
         <View style={styles.header}>
           <TouchableOpacity onPress={handleUpload}>
-            {profile.profilePicture ? (
-              <Image source={{ uri: profile.profilePicture }} style={styles.profilePic} />
+            {profile.profilePicUrl ? (
+              <Image source={{ uri: profile.profilePicUrl }} style={styles.profilePic} />
             ) : (
               <View style={styles.profilePlaceholder}>
-                <Text style={{ color: 'white', textAlign: 'center', fontSize: 10 }}>Insert Image Here</Text>
+                <Text style={{ color: 'white', textAlign: 'center', fontSize: 10 }}>Tap to add photo</Text>
               </View>
             )}
           </TouchableOpacity>

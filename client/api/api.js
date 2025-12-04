@@ -50,4 +50,11 @@ export const deletePost = (postId) =>
 // ---- USER API CALLS ---- //
 export const getProfile = () => api.get('/profile');
 
+export const updateProfile = (data) => api.put('/profile', data);
+
+// ---- FRIENDS API CALLS ---- //
+export const getFriends = () => api.get('/friends');
+
+export const addFriend = (username) => api.post('/friends', { username });
+
 export default api;

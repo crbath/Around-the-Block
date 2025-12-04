@@ -3,7 +3,7 @@ import { View, Text, StyleSheet, Image, TouchableOpacity, FlatList, ActivityIndi
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import * as ImagePicker from 'expo-image-picker'
 import {useNavigation} from '@react-navigation/native'
-import { getProfile, getUserPosts } from '../api/api'
+import { getProfile, getUserPosts, updateProfile } from '../api/api'
 import { uploadProfilePicture } from '../utils/firebase'
 import PostCard from '../components/PostCard'
 
@@ -79,11 +79,18 @@ export default function ProfileScreen() {
         const userId = await AsyncStorage.getItem('userId') || profile?._id?.toString() || 'anonymous'
         const imageUrl = await uploadProfilePicture(result.assets[0].uri, userId)
         
-        // Update profile with new image URL
-        // Note: You may want to add an API endpoint to update profilePicUrl
-        setProfile({...profile, profilePicUrl: imageUrl})
+        // Update profile with new image URL in the backend
+        try {
+          await updateProfile({ profilePicUrl: imageUrl })
+          setProfile({...profile, profilePicUrl: imageUrl})
+          Alert.alert('Success', 'Profile picture updated!')
+        } catch (updateError) {
+          console.error('Error updating profile in backend:', updateError)
+          // Still update local state even if backend update fails
+          setProfile({...profile, profilePicUrl: imageUrl})
+          Alert.alert('Warning', 'Picture uploaded but may not be saved to profile')
+        }
         setUploadingPic(false)
-        Alert.alert('Success', 'Profile picture updated!')
       }
     } catch (error) {
       console.error('Error uploading profile picture:', error)

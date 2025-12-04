@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
-import { View, Text, StyleSheet, FlatList, TouchableOpacity, ActivityIndicator } from 'react-native';
+import { View, Text, StyleSheet, FlatList, TouchableOpacity, ActivityIndicator, Modal, TextInput, Alert } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
-import api from '../../api/api';
+import { getFriends, addFriend } from '../../api/api';
 
 const MOCK_FRIENDS = [
   { id: '1', username: 'alice', name: 'Alice Johnson' },
@@ -12,21 +12,59 @@ const MOCK_FRIENDS = [
 export default function FriendsScreen({ navigation }) {
   const [friends, setFriends] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [modalVisible, setModalVisible] = useState(false);
+  const [usernameInput, setUsernameInput] = useState('');
+  const [addingFriend, setAddingFriend] = useState(false);
 
   useEffect(() => { loadFriends(); }, []);
 
   async function loadFriends() {
     try {
-      const res = await api.get('/friends');
-      setFriends(res.data);
+      setLoading(true);
+      const res = await getFriends();
+      setFriends(res.data || []);
     } catch (err) {
-      setFriends(MOCK_FRIENDS);
+      console.error('Error loading friends:', err);
+      // Only use mock data if there's an actual error, not if friends list is empty
+      if (err.response?.status === 404 || err.response?.status === 401) {
+        setFriends([]);
+      } else {
+        setFriends(MOCK_FRIENDS);
+      }
+    } finally {
+      setLoading(false);
     }
-    setLoading(false);
   }
 
-  function handleAddFriend() { console.log('add friend button pressed'); }
-  function handleFriendPress(friend) { navigation.navigate('FriendProfile', { friend }); }
+  async function handleAddFriend() {
+    setModalVisible(true);
+  }
+
+  async function handleSubmitAddFriend() {
+    if (!usernameInput.trim()) {
+      Alert.alert('Error', 'Please enter a username');
+      return;
+    }
+
+    try {
+      setAddingFriend(true);
+      const res = await addFriend(usernameInput.trim());
+      Alert.alert('Success', res.data.message || 'Friend added successfully!');
+      setModalVisible(false);
+      setUsernameInput('');
+      // Reload friends list
+      await loadFriends();
+    } catch (error) {
+      const errorMessage = error.response?.data?.message || 'Failed to add friend';
+      Alert.alert('Error', errorMessage);
+    } finally {
+      setAddingFriend(false);
+    }
+  }
+
+  function handleFriendPress(friend) { 
+    navigation.navigate('FriendProfile', { friend }); 
+  }
 
   if (loading) {
     return (
@@ -78,6 +116,56 @@ export default function FriendsScreen({ navigation }) {
           <Text style={styles.addButtonText}>Add Friends</Text>
         </TouchableOpacity>
       )}
+
+      {/* Add Friend Modal */}
+      <Modal
+        animationType="slide"
+        transparent={true}
+        visible={modalVisible}
+        onRequestClose={() => setModalVisible(false)}
+      >
+        <View style={styles.modalOverlay}>
+          <View style={styles.modalContent}>
+            <Text style={styles.modalTitle}>Add Friend</Text>
+            <Text style={styles.modalSubtitle}>Enter a username to add as a friend</Text>
+            
+            <TextInput
+              style={styles.input}
+              placeholder="Username"
+              placeholderTextColor="#9BA1A6"
+              value={usernameInput}
+              onChangeText={setUsernameInput}
+              autoCapitalize="none"
+              autoCorrect={false}
+            />
+
+            <View style={styles.modalButtons}>
+              <TouchableOpacity
+                style={[styles.modalButton, styles.cancelButton]}
+                onPress={() => {
+                  setModalVisible(false);
+                  setUsernameInput('');
+                }}
+                disabled={addingFriend}
+              >
+                <Text style={styles.cancelButtonText}>Cancel</Text>
+              </TouchableOpacity>
+              
+              <TouchableOpacity
+                style={[styles.modalButton, styles.submitButton]}
+                onPress={handleSubmitAddFriend}
+                disabled={addingFriend}
+              >
+                {addingFriend ? (
+                  <ActivityIndicator size="small" color="#FFFFFF" />
+                ) : (
+                  <Text style={styles.submitButtonText}>Add</Text>
+                )}
+              </TouchableOpacity>
+            </View>
+          </View>
+        </View>
+      </Modal>
     </View>
   );
 }
@@ -97,4 +185,15 @@ const styles = StyleSheet.create({
   friendUsername: { color: '#9BA1A6', fontSize: 14 },
   addButtonBottom: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', backgroundColor: '#7EA0FF', margin: 16, padding: 14, borderRadius: 10 },
   addButtonText: { color: '#FFFFFF', fontSize: 16, fontWeight: 'bold', marginLeft: 8 },
+  modalOverlay: { flex: 1, backgroundColor: 'rgba(0, 0, 0, 0.7)', justifyContent: 'center', alignItems: 'center' },
+  modalContent: { backgroundColor: '#1A1A2E', borderRadius: 20, padding: 24, width: '80%', maxWidth: 400 },
+  modalTitle: { color: '#FFFFFF', fontSize: 24, fontWeight: 'bold', marginBottom: 8, textAlign: 'center' },
+  modalSubtitle: { color: '#9BA1A6', fontSize: 14, marginBottom: 20, textAlign: 'center' },
+  input: { backgroundColor: '#0B0D17', borderRadius: 10, padding: 12, color: '#FFFFFF', fontSize: 16, marginBottom: 20, borderWidth: 1, borderColor: '#333' },
+  modalButtons: { flexDirection: 'row', justifyContent: 'space-between', gap: 12 },
+  modalButton: { flex: 1, padding: 14, borderRadius: 10, alignItems: 'center' },
+  cancelButton: { backgroundColor: '#333' },
+  cancelButtonText: { color: '#FFFFFF', fontSize: 16, fontWeight: 'bold' },
+  submitButton: { backgroundColor: '#7EA0FF' },
+  submitButtonText: { color: '#FFFFFF', fontSize: 16, fontWeight: 'bold' },
 });

@@ -28,7 +28,8 @@ const userSchema = new mongoose.Schema({
   birthday: { type: String },
   barAcc: {type: Boolean},
   bar: {type: String},
-  profilePicUrl: { type: String, default: "" }
+  profilePicUrl: { type: String, default: "" },
+  friends: [{ type: mongoose.Schema.Types.ObjectId, ref: "User" }]
 });
 
 //bar schema for inputting wait times
@@ -102,6 +103,127 @@ app.get("/profile", verifyToken, async (req, res) => {
   res.json(user);
 });
 
+// Update profile (including profile picture)
+app.put("/profile", verifyToken, async (req, res) => {
+  try {
+    const { profilePicUrl } = req.body;
+    const user = await User.findById(req.userId);
+    
+    if (!user) {
+      return res.status(404).json({ message: "User not found" });
+    }
+
+    if (profilePicUrl !== undefined) {
+      user.profilePicUrl = profilePicUrl;
+    }
+
+    await user.save();
+    res.json({ message: "Profile updated successfully", user });
+  } catch (error) {
+    console.error("Error updating profile:", error);
+    res.status(500).json({ message: "Error updating profile" });
+  }
+});
+
+// Get user's friends
+app.get("/friends", verifyToken, async (req, res) => {
+  try {
+    const user = await User.findById(req.userId).populate('friends', 'username profilePicUrl birthday');
+    if (!user) {
+      return res.status(404).json({ message: "User not found" });
+    }
+    // Transform friends data to include id field
+    const friends = user.friends.map(friend => ({
+      id: friend._id.toString(),
+      username: friend.username,
+      name: friend.username, // Use username as name if no separate name field
+      profilePicUrl: friend.profilePicUrl,
+      birthday: friend.birthday
+    }));
+    res.json(friends);
+  } catch (error) {
+    console.error("Error fetching friends:", error);
+    res.status(500).json({ message: "Error fetching friends" });
+  }
+});
+
+// Get all users (excluding current user and existing friends) - for adding friends
+app.get("/users", verifyToken, async (req, res) => {
+  try {
+    const currentUser = await User.findById(req.userId);
+    if (!currentUser) {
+      return res.status(404).json({ message: "User not found" });
+    }
+
+    // Get all users except current user and existing friends
+    const friendIds = currentUser.friends.map(id => id.toString());
+    friendIds.push(req.userId);
+
+    const users = await User.find({
+      _id: { $nin: friendIds }
+    }).select('username profilePicUrl birthday');
+
+    // Transform users data
+    const usersList = users.map(user => ({
+      id: user._id.toString(),
+      username: user.username,
+      name: user.username,
+      profilePicUrl: user.profilePicUrl || "",
+      birthday: user.birthday || ""
+    }));
+
+    res.json(usersList);
+  } catch (error) {
+    console.error("Error fetching users:", error);
+    res.status(500).json({ message: "Error fetching users" });
+  }
+});
+
+// Add a friend by username
+app.post("/friends", verifyToken, async (req, res) => {
+  try {
+    const { username } = req.body;
+    if (!username) {
+      return res.status(400).json({ message: "Username is required" });
+    }
+
+    const currentUser = await User.findById(req.userId);
+    if (!currentUser) {
+      return res.status(404).json({ message: "User not found" });
+    }
+
+    // Find the friend by username
+    const friend = await User.findOne({ username });
+    if (!friend) {
+      return res.status(404).json({ message: "User not found" });
+    }
+
+    // Check if trying to add yourself
+    if (friend._id.toString() === req.userId) {
+      return res.status(400).json({ message: "Cannot add yourself as a friend" });
+    }
+
+    // Check if already friends
+    if (currentUser.friends.includes(friend._id)) {
+      return res.status(400).json({ message: "Already friends with this user" });
+    }
+
+    // Add friend
+    currentUser.friends.push(friend._id);
+    await currentUser.save();
+
+    res.json({ message: "Friend added successfully", friend: {
+      id: friend._id.toString(),
+      username: friend.username,
+      name: friend.username,
+      profilePicUrl: friend.profilePicUrl,
+      birthday: friend.birthday
+    }});
+  } catch (error) {
+    console.error("Error adding friend:", error);
+    res.status(500).json({ message: "Error adding friend" });
+  }
+});
 
 // Signup Route
 app.post("/signup", async (req, res) => {
