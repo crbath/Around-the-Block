@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
 import {
   View,
   Text,
@@ -13,33 +13,14 @@ import {
 import { Ionicons } from '@expo/vector-icons';
 import * as ImagePicker from 'expo-image-picker';
 import { uploadPostImage } from '../utils/firebase';
-import { createPost, getProfile } from '../api/api';
+import { createPost } from '../api/api';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
 export default function CreatePostScreen({ navigation }) {
   const [content, setContent] = useState('');
   const [imageUri, setImageUri] = useState(null);
   const [uploading, setUploading] = useState(false);
-  const [profile, setProfile] = useState(null);
 
-  // fetch user profile when screen loads (important: shows profile pic and username)
-  useEffect(() => {
-    fetchProfile();
-  }, []);
-
-  const fetchProfile = async () => {
-    try {
-      const res = await getProfile();
-      setProfile(res.data);
-    } catch (error) {
-      console.error('Error fetching profile:', error);
-      // fallback to username from storage if api fails
-      const username = await AsyncStorage.getItem('user');
-      setProfile({ username: username || 'User', profilePicUrl: '' });
-    }
-  };
-
-  // pick image from device (important: requests permission first)
   const pickImage = async () => {
     try {
       const permission = await ImagePicker.requestMediaLibraryPermissionsAsync();
@@ -64,7 +45,6 @@ export default function CreatePostScreen({ navigation }) {
     }
   };
 
-  // handle post creation (important: uploads image to firebase first, then creates post in mongodb)
   const handlePost = async () => {
     if (!content.trim()) {
       Alert.alert('Error', 'Please enter some content for your post');
@@ -75,18 +55,20 @@ export default function CreatePostScreen({ navigation }) {
     try {
       let imageUrl = '';
       
-      // upload image to firebase if user selected one (important: get firebase url before saving post)
+      // Upload image to Firebase if one was selected
       if (imageUri) {
         const userId = await AsyncStorage.getItem('user');
         imageUrl = await uploadPostImage(imageUri, userId || 'anonymous');
       }
 
-      // create post in mongodb with content and firebase image url
+      // Create post with content and image URL
       await createPost(content.trim(), imageUrl);
 
-      // reset form and go back
+      // Reset form
       setContent('');
       setImageUri(null);
+
+      // Navigate back
       navigation.goBack();
       Alert.alert('Success', 'Post created successfully!');
     } catch (error) {
@@ -122,21 +104,15 @@ export default function CreatePostScreen({ navigation }) {
       </View>
 
       <ScrollView style={styles.content}>
-        {/* user info: profile pic or initial, username */}
+        {/* User info placeholder */}
         <View style={styles.userInfo}>
-          {profile?.profilePicUrl ? (
-            <Image source={{ uri: profile.profilePicUrl }} style={styles.avatarImage} />
-          ) : (
-            <View style={styles.avatar}>
-              <Text style={styles.avatarText}>
-                {profile?.username ? profile.username[0].toUpperCase() : 'U'}
-              </Text>
-            </View>
-          )}
-          <Text style={styles.username}>{profile?.username || 'You'}</Text>
+          <View style={styles.avatar}>
+            <Text style={styles.avatarText}>U</Text>
+          </View>
+          <Text style={styles.username}>You</Text>
         </View>
 
-        {/* text input for post content */}
+        {/* Text input */}
         <TextInput
           style={styles.textInput}
           placeholder="What's on your mind?"
@@ -147,7 +123,7 @@ export default function CreatePostScreen({ navigation }) {
           textAlignVertical="top"
         />
 
-        {/* image preview (only show if image selected) */}
+        {/* Image preview */}
         {imageUri && (
           <View style={styles.imageContainer}>
             <Image source={{ uri: imageUri }} style={styles.previewImage} />
@@ -160,7 +136,7 @@ export default function CreatePostScreen({ navigation }) {
           </View>
         )}
 
-        {/* add/change image button */}
+        {/* Add image button */}
         <TouchableOpacity style={styles.addImageButton} onPress={pickImage}>
           <Ionicons name="image-outline" size={24} color="#7EA0FF" />
           <Text style={styles.addImageText}>
@@ -223,12 +199,6 @@ const styles = StyleSheet.create({
     backgroundColor: '#7EA0FF',
     alignItems: 'center',
     justifyContent: 'center',
-    marginRight: 12,
-  },
-  avatarImage: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
     marginRight: 12,
   },
   avatarText: {

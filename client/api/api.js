@@ -1,14 +1,15 @@
 import axios from 'axios';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
-// backend url (change this to your machine ip and port)
+// Replace with your machine IP address and backend port
+// Example: "http://192.168.1.99:5000"
 const BASE_URL = "http://192.168.1.99:5000";
 
 const api = axios.create({
   baseURL: BASE_URL,
 });
 
-// automatically add auth token to all requests (important: this is how we authenticate)
+// Add token to requests automatically
 api.interceptors.request.use(
   async (config) => {
     const token = await AsyncStorage.getItem('token');
@@ -46,25 +47,7 @@ export const likePost = (postId) =>
 export const deletePost = (postId) =>
   api.delete(`/posts/${postId}`);
 
-// ---- COMMENT API CALLS ---- //
-export const getComments = (postId) =>
-  api.get(`/posts/${postId}/comments`);
-
-export const createComment = (postId, text) =>
-  api.post(`/posts/${postId}/comments`, { text });
-
 // ---- USER API CALLS ---- //
 export const getProfile = () => api.get('/profile');
-
-export const updateProfile = (profileData) => api.put('/profile', profileData);
-
-// ---- FRIENDS API CALLS ---- //
-export const getAllUsers = () => api.get('/users');
-
-export const getFriends = () => api.get('/friends');
-
-export const addFriend = (userId) => api.post(`/friends/${userId}`);
-
-export const removeFriend = (userId) => api.delete(`/friends/${userId}`);
 
 export default api;

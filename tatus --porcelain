@@ -1,0 +1,21 @@
+warning: in the working copy of 'client/api/api.js', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'client/around-the-block-backend/server.js', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'client/components/PostCard.js', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'client/screens/CreatePostScreen.js', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'client/screens/FeedScreen.js', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'client/screens/FriendsScreen.js', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'client/screens/PostDetailScreen.js', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'client/screens/ProfileScreen.js', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'client/utils/firebase.js', LF will be replaced by CRLF the next time Git touches it
+client/components/PostCard.js:108: trailing whitespace.
+[32m+[m[32m          }}[m[41m [m
+client/screens/FriendsScreen.js:61: trailing whitespace.
+[32m+[m[32m          <TouchableOpacity[m[41m [m
+client/screens/FriendsScreen.js:70: trailing whitespace.
+[32m+[m[32m          <TouchableOpacity[m[41m [m
+client/screens/FriendsScreen.js:91: trailing whitespace.
+[32m+[m[32m        <TouchableOpacity[m[41m [m
+client/screens/FriendsScreen.js:100: trailing whitespace.
+[32m+[m[32m        <TouchableOpacity[m[41m [m
+client/screens/FriendsScreen.js:110: trailing whitespace.
+[32m+[m[41m        [m

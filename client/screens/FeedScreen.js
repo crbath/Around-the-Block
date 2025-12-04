@@ -13,7 +13,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { getPosts } from '../api/api';
 import PostCard from '../components/PostCard';
 
-// mock posts (fallback if backend fails)
+// mock posts
 const MOCK_POSTS = [
   {
     id: '1',
@@ -47,37 +47,39 @@ const MOCK_POSTS = [
 ];
 
 export default function FeedScreen({ navigation }) {
-  // state: posts list, loading flag, refresh flag
-  const [posts, setPosts] = useState([]);
-  const [loading, setLoading] = useState(true);
-  const [refreshing, setRefreshing] = useState(false);
+  // track posts, loading status, and refresh status
+  const [posts, setPosts] = useState([]); // posts to display
+  const [loading, setLoading] = useState(true); // wgether we're loading data
+  const [refreshing, setRefreshing] = useState(false); // whether or not a user is pulling to refresh
 
-  // load posts when screen first mounts
+  // useEffect runs when component first loads
   useEffect(() => {
+    // load posts when screen loads
     loadPosts();
   }, []);
 
-  // fetch posts from backend (important: falls back to mock data if backend fails)
+  // fetch posts from backend or use mock data
   async function loadPosts() {
     try {
+      // try to get posts from backend API
       const res = await getPosts();
       setPosts(res.data);
     } catch (err) {
       console.error('Error loading posts:', err);
-      // fallback to mock data if backend is down
+      // if backend fails, use mock data
       setPosts(MOCK_POSTS);
     }
-    setLoading(false);
+    setLoading(false); // done loading
   }
 
-  // handle pull-to-refresh (important: reloads posts from backend)
+  // function called when user pulls down to refresh
   async function handleRefresh() {
-    setRefreshing(true);
-    await loadPosts();
-    setRefreshing(false);
+    setRefreshing(true); // Show refresh spinner
+    await loadPosts(); // Reload posts
+    setRefreshing(false); // Hide refresh spinner
   }
 
-  // show loading spinner while fetching
+  // loading spinner while data is being fetched
   if (loading) {
     return (
       <View style={styles.center}>
@@ -89,16 +91,18 @@ export default function FeedScreen({ navigation }) {
   // show feed with posts
   return (
     <View style={styles.container}>
-      {/* header: title, create post button, friends button */}
+      {/* header with title and buttons */}
       <View style={styles.header}>
         <Text style={styles.headerTitle}>Feed</Text>
         <View style={styles.headerButtons}>
+          {/* button to create new post */}
           <TouchableOpacity 
             onPress={() => navigation.navigate('CreatePost')}
             style={styles.createButton}
           >
             <Ionicons name="add-circle-outline" size={28} color="#7EA0FF" />
           </TouchableOpacity>
+          {/* button to navigate to friends screen */}
           <TouchableOpacity 
             onPress={() => navigation.navigate('Friends')}
             style={styles.friendsButton}
@@ -108,12 +112,14 @@ export default function FeedScreen({ navigation }) {
         </View>
       </View>
 
-      {/* posts list (important: pass navigation as prop, not in post object to avoid serialization warnings) */}
+      {/* list of posts - FlatList efficiently renders long lists */}
       <FlatList
-        data={posts}
-        keyExtractor={(item) => item.id}
+        data={posts} // posts
+        keyExtractor={(item) => item.id} // unique key for each post
         renderItem={({ item }) => {
-          return <PostCard post={item} navigation={navigation} />;
+          // render each post using PostCard component
+          // Pass navigation prop so PostCard can navigate to detail screen
+          return <PostCard post={{ ...item, navigation }} />;
         }}
         refreshControl={
           <RefreshControl refreshing={refreshing} onRefresh={handleRefresh} tintColor="#7EA0FF" />

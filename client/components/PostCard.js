@@ -3,13 +3,13 @@ import { View, Text, Image, StyleSheet, TouchableOpacity } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { likePost } from '../api/api';
 
-// displays a single post card in the feed
-export default function PostCard({ post, navigation }) {
-  // track if this post is liked and the like count (important: keeps state in sync with backend)
+// PostCard component displays a single post in the feed
+export default function PostCard({ post }) {
+  // state to track if this post is liked and the like count
   const [liked, setLiked] = useState(post.liked || false);
   const [likeCount, setLikeCount] = useState(post.likeCount || 0);
 
-  // update state when post data changes (important: syncs with backend data)
+  // component first loads
   React.useEffect(() => {
     if (post.liked !== undefined) {
       setLiked(post.liked);
@@ -19,37 +19,46 @@ export default function PostCard({ post, navigation }) {
     }
   }, [post.liked, post.likeCount]);
 
-  // handle like button click (important: optimistic UI update, reverts on error)
+  // handle when user clicks like button
   async function handleLike() {
-    // save previous state so we can revert if api call fails
+    // Store previous state for potential revert
     const previousLiked = liked;
     const previousLikeCount = likeCount;
     
     try {
-      // update UI immediately (optimistic update)
+      // Optimistically update UI
       const newLiked = !liked;
       setLiked(newLiked);
       setLikeCount(newLiked ? likeCount + 1 : Math.max(0, likeCount - 1));
 
-      // call backend to actually save the like
+      // Call API to update like
       await likePost(post.id);
     } catch (error) {
-      // revert UI if api call failed
+      // Revert on error
       setLiked(previousLiked);
       setLikeCount(previousLikeCount);
       console.error('Error liking post:', error);
     }
   }
 
+  // user clicks comment button
+  function handleComment() {
+    console.log('comment button pressed');
+    // TODO: add comment functionality later
+  }
+
+  // handle when user clicks on the post card
+  function handlePostPress() {
+    if (post.navigation) {
+      post.navigation.navigate('PostDetail', { post });
+    }
+  }
+
   return (
-    <TouchableOpacity 
-      style={styles.card} 
-      onPress={() => navigation?.navigate('PostDetail', { post })} 
-      activeOpacity={0.8}
-    >
-      {/* header: profile pic or initial, username, timestamp */}
+    <TouchableOpacity style={styles.card} onPress={handlePostPress} activeOpacity={0.8}>
+      {/* header section with user profile icon and info */}
       <View style={styles.header}>
-        {/* show profile pic if available, otherwise show first letter of username */}
+        {/* profile circle with first letter of username or profile pic */}
         {post.profilePicUrl ? (
           <Image source={{ uri: post.profilePicUrl }} style={styles.avatarImage} />
         ) : (
@@ -59,25 +68,28 @@ export default function PostCard({ post, navigation }) {
             </Text>
           </View>
         )}
+        {/* username and timestamp (?) */}
         <View>
           <Text style={styles.username}>{post.username}</Text>
           <Text style={styles.timestamp}>{post.time}</Text>
         </View>
       </View>
 
-      {/* post text (only render if exists) */}
+      {/* post text content - only show if post has text */}
       {post.text && <Text style={styles.text}>{post.text}</Text>}
 
-      {/* post image (only render if exists) */}
+      {/* post image - only show if post has an image */}
       {post.image && <Image source={{ uri: post.image }} style={styles.image} />}
 
-      {/* footer: like and comment buttons */}
+      {/* footer with like and comment buttons */}
       <View style={styles.footer}>
-        {/* like button - filled heart if liked, outline if not */}
+        {/* like button */}
         <TouchableOpacity onPress={handleLike} style={styles.button}>
           {liked ? (
+            // show filled heart if liked
             <Ionicons name="heart" size={20} color="#FF6B6B" />
           ) : (
+            // show outline heart if not liked
             <Ionicons name="heart-outline" size={20} color="#9BA1A6" />
           )}
           <Text style={styles.buttonText}>
@@ -85,9 +97,15 @@ export default function PostCard({ post, navigation }) {
           </Text>
         </TouchableOpacity>
 
-        {/* comment button - navigates to post detail screen */}
+        {/* comment button - navigate to detail screen */}
         <TouchableOpacity 
-          onPress={() => navigation?.navigate('PostDetail', { post })} 
+          onPress={() => {
+            if (post.navigation) {
+              post.navigation.navigate('PostDetail', { post });
+            } else {
+              handleComment();
+            }
+          }}
           style={styles.button}
         >
           <Ionicons name="chatbubble-outline" size={20} color="#9BA1A6" />

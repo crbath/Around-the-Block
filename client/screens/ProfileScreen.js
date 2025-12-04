@@ -3,7 +3,7 @@ import { View, Text, StyleSheet, Image, TouchableOpacity, FlatList, ActivityIndi
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import * as ImagePicker from 'expo-image-picker'
 import {useNavigation} from '@react-navigation/native'
-import { getProfile, getUserPosts, updateProfile } from '../api/api'
+import { getProfile, getUserPosts } from '../api/api'
 import { uploadProfilePicture } from '../utils/firebase'
 import PostCard from '../components/PostCard'
 
@@ -18,14 +18,6 @@ export default function ProfileScreen() {
   useEffect(()=> {
     fetchProfile()
   }, [])
-
-  // Reload profile when screen comes into focus (e.g., after logging back in)
-  useEffect(() => {
-    const unsubscribe = navigation.addListener('focus', () => {
-      fetchProfile()
-    });
-    return unsubscribe;
-  }, [navigation])
 
   useEffect(()=> {
     if (profile) {
@@ -87,21 +79,11 @@ export default function ProfileScreen() {
         const userId = await AsyncStorage.getItem('userId') || profile?._id?.toString() || 'anonymous'
         const imageUrl = await uploadProfilePicture(result.assets[0].uri, userId)
         
-        // Save profile picture URL to database
-        try {
-          const response = await updateProfile({ profilePicUrl: imageUrl });
-          // Update local state
-          setProfile({...profile, profilePicUrl: imageUrl})
-          Alert.alert('Success', 'Profile picture updated!')
-        } catch (error) {
-          console.error('Error saving profile picture to database:', error)
-          console.error('Error response:', error.response?.data)
-          console.error('Error status:', error.response?.status)
-          // Still update local state so user sees the picture, but warn them
-          setProfile({...profile, profilePicUrl: imageUrl})
-          Alert.alert('Warning', 'Picture uploaded but may not be saved. Please restart your backend server and try again.')
-        }
+        // Update profile with new image URL
+        // Note: You may want to add an API endpoint to update profilePicUrl
+        setProfile({...profile, profilePicUrl: imageUrl})
         setUploadingPic(false)
+        Alert.alert('Success', 'Profile picture updated!')
       }
     } catch (error) {
       console.error('Error uploading profile picture:', error)
@@ -172,7 +154,7 @@ export default function ProfileScreen() {
           data={posts}
           keyExtractor={(item) => item.id}
           renderItem={({ item }) => (
-            <PostCard post={item} navigation={navigation} />
+            <PostCard post={{ ...item, navigation }} />
           )}
           scrollEnabled={false}
         />

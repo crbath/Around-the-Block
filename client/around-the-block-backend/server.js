@@ -23,8 +23,7 @@ const userSchema = new mongoose.Schema({
   birthday: { type: String },
   barAcc: {type: Boolean},
   bar: {type: String},
-  profilePicUrl: { type: String, default: "" },
-  friends: [{ type: mongoose.Schema.Types.ObjectId, ref: "User" }]
+  profilePicUrl: { type: String, default: "" }
 });
 
 //bar schema for inputting wait times
@@ -68,19 +67,8 @@ const postSchema = new mongoose.Schema({
   createdAt: { type: Date, default: Date.now }
 });
 
-// Comment Schema
-const commentSchema = new mongoose.Schema({
-  postId: { type: mongoose.Schema.Types.ObjectId, ref: "Post", required: true },
-  userId: { type: mongoose.Schema.Types.ObjectId, ref: "User", required: true },
-  username: { type: String, required: true },
-  profilePicUrl: { type: String, default: "" },
-  text: { type: String, required: true },
-  createdAt: { type: Date, default: Date.now }
-});
-
 const BarTime = mongoose.model("BarTime", barSchema);
 const Post = mongoose.model("Post", postSchema);
-const Comment = mongoose.model("Comment", commentSchema);
 const User = mongoose.model("User", userSchema);
 
 const verifyToken = (req, res, next) => {
@@ -102,151 +90,6 @@ app.get("/profile", verifyToken, async (req, res) => {
   const user = await User.findById(req.userId)
   .select("-password")
   res.json(user);
-});
-
-// Update user profile (including profile picture)
-app.put("/profile", verifyToken, async (req, res) => {
-  try {
-    const { profilePicUrl } = req.body;
-    const user = await User.findById(req.userId);
-    
-    if (!user) {
-      return res.status(404).json({ message: "User not found" });
-    }
-
-    if (profilePicUrl !== undefined) {
-      user.profilePicUrl = profilePicUrl;
-    }
-
-    await user.save();
-    res.json({ message: "Profile updated successfully", user });
-  } catch (error) {
-    console.error("Error updating profile:", error);
-    res.status(500).json({ message: "Error updating profile" });
-  }
-});
-
-// ========== FRIENDS ROUTES ==========
-
-// get all users (important: used for finding friends, excludes passwords)
-app.get("/users", verifyToken, async (req, res) => {
-  try {
-    const users = await User.find({})
-      .select("-password") // don't send passwords to frontend
-      .lean();
-
-    const formattedUsers = users.map(user => ({
-      id: user._id.toString(),
-      username: user.username,
-      profilePicUrl: user.profilePicUrl || "",
-      birthday: user.birthday || ""
-    }));
-
-    res.json(formattedUsers);
-  } catch (error) {
-    console.error("Error fetching users:", error);
-    res.status(500).json({ message: "Error fetching users" });
-  }
-});
-
-// get current user's friends (important: populates friend data from user collection)
-app.get("/friends", verifyToken, async (req, res) => {
-  try {
-    const user = await User.findById(req.userId)
-      .populate('friends', 'username profilePicUrl birthday')
-      .select("-password")
-      .lean();
-
-    if (!user) {
-      return res.status(404).json({ message: "User not found" });
-    }
-
-    const formattedFriends = (user.friends || []).map(friend => ({
-      id: friend._id.toString(),
-      username: friend.username,
-      profilePicUrl: friend.profilePicUrl || "",
-      birthday: friend.birthday || ""
-    }));
-
-    res.json(formattedFriends);
-  } catch (error) {
-    console.error("Error fetching friends:", error);
-    res.status(500).json({ message: "Error fetching friends" });
-  }
-});
-
-// add a friend (important: validates user exists, prevents self-add, prevents duplicates)
-app.post("/friends/:userId", verifyToken, async (req, res) => {
-  try {
-    const { userId } = req.params;
-    const currentUserId = req.userId;
-
-    // can't add yourself
-    if (userId === currentUserId.toString()) {
-      return res.status(400).json({ message: "You cannot add yourself as a friend" });
-    }
-
-    // validate objectid format
-    if (!mongoose.Types.ObjectId.isValid(userId)) {
-      return res.status(400).json({ message: "Invalid user ID" });
-    }
-
-    // check if user exists
-    const friendToAdd = await User.findById(userId);
-    if (!friendToAdd) {
-      return res.status(404).json({ message: "User not found" });
-    }
-
-    // get current user
-    const currentUser = await User.findById(currentUserId);
-    if (!currentUser) {
-      return res.status(404).json({ message: "Current user not found" });
-    }
-
-    // check if already friends (important: prevents duplicates)
-    if (currentUser.friends.includes(new mongoose.Types.ObjectId(userId))) {
-      return res.status(400).json({ message: "User is already your friend" });
-    }
-
-    // add friend to friends array
-    currentUser.friends.push(new mongoose.Types.ObjectId(userId));
-    await currentUser.save();
-
-    res.json({ message: "Friend added successfully" });
-  } catch (error) {
-    console.error("Error adding friend:", error);
-    res.status(500).json({ message: "Error adding friend" });
-  }
-});
-
-// remove a friend (important: filters friend from array)
-app.delete("/friends/:userId", verifyToken, async (req, res) => {
-  try {
-    const { userId } = req.params;
-    const currentUserId = req.userId;
-
-    // validate objectid format
-    if (!mongoose.Types.ObjectId.isValid(userId)) {
-      return res.status(400).json({ message: "Invalid user ID" });
-    }
-
-    // get current user
-    const currentUser = await User.findById(currentUserId);
-    if (!currentUser) {
-      return res.status(404).json({ message: "Current user not found" });
-    }
-
-    // remove friend from array
-    currentUser.friends = currentUser.friends.filter(
-      friendId => friendId.toString() !== userId
-    );
-    await currentUser.save();
-
-    res.json({ message: "Friend removed successfully" });
-  } catch (error) {
-    console.error("Error removing friend:", error);
-    res.status(500).json({ message: "Error removing friend" });
-  }
 });
 
 
@@ -447,7 +290,7 @@ app.get("/bars", async (req, res) => {
 
 // ========== POST ROUTES ==========
 
-// create a new post (important: saves profilepicurl from user at time of creation, imageurl comes from firebase)
+// Create a new post
 app.post("/posts", verifyToken, async (req, res) => {
   try {
     const { content, imageUrl } = req.body;
@@ -461,12 +304,11 @@ app.post("/posts", verifyToken, async (req, res) => {
       return res.status(404).json({ message: "User not found" });
     }
 
-    // create post with user info (important: saves profilepicurl so it persists even if user changes it later)
     const newPost = new Post({
       userId: req.userId,
       username: user.username,
       content: content.trim(),
-      imageUrl: imageUrl || "", // firebase url if image was uploaded
+      imageUrl: imageUrl || "",
       profilePicUrl: user.profilePicUrl || "",
       likes: 0,
       likedBy: []
@@ -480,69 +322,27 @@ app.post("/posts", verifyToken, async (req, res) => {
   }
 });
 
-// get all posts for feed (important: optional auth, checks if user liked each post, gets comment counts, falls back to current profile pics)
+// Get all posts (for feed)
 app.get("/posts", async (req, res) => {
   try {
-    // try to get user id from token (optional - works for logged in and logged out users)
-    let currentUserId = null;
-    try {
-      const token = req.headers.authorization?.split(' ')[1];
-      if (token) {
-        const decoded = jwt.verify(token, process.env.JWT_SECRET);
-        currentUserId = decoded.id.toString();
-      }
-    } catch (err) {
-      // no token or invalid token - that's fine, user just isn't logged in
-    }
-
-    // get all posts, newest first
     const posts = await Post.find({})
       .sort({ createdAt: -1 })
       .limit(50)
       .lean();
 
-    // get comment counts for all posts (important: aggregates from comments collection)
-    const postIds = posts.map(p => p._id);
-    const commentCounts = await Comment.aggregate([
-      { $match: { postId: { $in: postIds } } },
-      { $group: { _id: "$postId", count: { $sum: 1 } } }
-    ]);
-    const commentCountMap = {};
-    commentCounts.forEach(item => {
-      commentCountMap[item._id.toString()] = item.count;
-    });
-
-    // get current profile pics for all users (important: fallback if post doesn't have profilepicurl)
-    const userIds = [...new Set(posts.map(p => p.userId.toString()))];
-    const users = await User.find({ _id: { $in: userIds } }).select('_id profilePicUrl').lean();
-    const userProfilePicMap = {};
-    users.forEach(user => {
-      userProfilePicMap[user._id.toString()] = user.profilePicUrl || "";
-    });
-
-    // format posts for frontend
-    const formattedPosts = posts.map(post => {
-      // check if current user has liked this post (important: looks in likedBy array)
-      const hasLiked = currentUserId && post.likedBy 
-        ? post.likedBy.some(id => id.toString() === currentUserId)
-        : false;
-
-      // use post's profilepicurl if available, otherwise get current user's profilepicurl (important: fallback for old posts)
-      const profilePicUrl = post.profilePicUrl || userProfilePicMap[post.userId.toString()] || "";
-
-      return {
-        id: post._id.toString(),
-        userId: post.userId.toString(),
-        username: post.username,
-        text: post.content,
-        image: post.imageUrl || null,
-        profilePicUrl: profilePicUrl,
-        time: getTimeAgo(post.createdAt),
-        liked: hasLiked,
-        likeCount: post.likes || 0,
-        commentCount: commentCountMap[post._id.toString()] || 0
-      };
-    });
+    // Format posts for frontend
+    const formattedPosts = posts.map(post => ({
+      id: post._id.toString(),
+      userId: post.userId.toString(),
+      username: post.username,
+      text: post.content,
+      image: post.imageUrl || null,
+      profilePicUrl: post.profilePicUrl || "",
+      time: getTimeAgo(post.createdAt),
+      liked: false, // Will be set by frontend based on user
+      likeCount: post.likes || 0,
+      commentCount: 0 // Can be added later
+    }));
 
     res.json(formattedPosts);
   } catch (error) {
@@ -551,70 +351,27 @@ app.get("/posts", async (req, res) => {
   }
 });
 
-// get posts by specific user (important: same logic as get all posts but filtered by userid)
+// Get posts by a specific user
 app.get("/posts/user/:userId", async (req, res) => {
   try {
     const { userId } = req.params;
-    
-    // try to get current user id from token (optional)
-    let currentUserId = null;
-    try {
-      const token = req.headers.authorization?.split(' ')[1];
-      if (token) {
-        const decoded = jwt.verify(token, process.env.JWT_SECRET);
-        currentUserId = decoded.id.toString();
-      }
-    } catch (err) {
-      // no token or invalid token - that's fine
-    }
-
-    // get posts for this user
     const posts = await Post.find({ userId })
       .sort({ createdAt: -1 })
       .limit(50)
       .lean();
 
-    // get comment counts
-    const postIds = posts.map(p => p._id);
-    const commentCounts = await Comment.aggregate([
-      { $match: { postId: { $in: postIds } } },
-      { $group: { _id: "$postId", count: { $sum: 1 } } }
-    ]);
-    const commentCountMap = {};
-    commentCounts.forEach(item => {
-      commentCountMap[item._id.toString()] = item.count;
-    });
-
-    // get current profile pics (fallback for old posts)
-    const userIds = [...new Set(posts.map(p => p.userId.toString()))];
-    const users = await User.find({ _id: { $in: userIds } }).select('_id profilePicUrl').lean();
-    const userProfilePicMap = {};
-    users.forEach(user => {
-      userProfilePicMap[user._id.toString()] = user.profilePicUrl || "";
-    });
-
-    const formattedPosts = posts.map(post => {
-      // check if current user has liked this post
-      const hasLiked = currentUserId && post.likedBy 
-        ? post.likedBy.some(id => id.toString() === currentUserId)
-        : false;
-
-      // Use post's profilePicUrl if available, otherwise get current user's profilePicUrl
-      const profilePicUrl = post.profilePicUrl || userProfilePicMap[post.userId.toString()] || "";
-
-      return {
-        id: post._id.toString(),
-        userId: post.userId.toString(),
-        username: post.username,
-        text: post.content,
-        image: post.imageUrl || null,
-        profilePicUrl: profilePicUrl,
-        time: getTimeAgo(post.createdAt),
-        liked: hasLiked,
-        likeCount: post.likes || 0,
-        commentCount: commentCountMap[post._id.toString()] || 0
-      };
-    });
+    const formattedPosts = posts.map(post => ({
+      id: post._id.toString(),
+      userId: post.userId.toString(),
+      username: post.username,
+      text: post.content,
+      image: post.imageUrl || null,
+      profilePicUrl: post.profilePicUrl || "",
+      time: getTimeAgo(post.createdAt),
+      liked: false,
+      likeCount: post.likes || 0,
+      commentCount: 0
+    }));
 
     res.json(formattedPosts);
   } catch (error) {
@@ -623,7 +380,7 @@ app.get("/posts/user/:userId", async (req, res) => {
   }
 });
 
-// like/unlike a post (important: toggles like, adds/removes user from likedBy array, updates count)
+// Like/unlike a post
 app.post("/posts/:postId/like", verifyToken, async (req, res) => {
   try {
     const { postId } = req.params;
@@ -633,16 +390,15 @@ app.post("/posts/:postId/like", verifyToken, async (req, res) => {
       return res.status(404).json({ message: "Post not found" });
     }
 
-    // check if user already liked this post
     const userIdStr = req.userId.toString();
     const likedIndex = post.likedBy.findIndex(id => id.toString() === userIdStr);
 
     if (likedIndex === -1) {
-      // user hasn't liked, so add like
+      // User hasn't liked, so like it
       post.likedBy.push(req.userId);
       post.likes += 1;
     } else {
-      // user has liked, so remove like
+      // User has liked, so unlike it
       post.likedBy.splice(likedIndex, 1);
       post.likes = Math.max(0, post.likes - 1);
     }
@@ -659,7 +415,7 @@ app.post("/posts/:postId/like", verifyToken, async (req, res) => {
   }
 });
 
-// delete a post (important: only owner can delete)
+// Delete a post (only by the owner)
 app.delete("/posts/:postId", verifyToken, async (req, res) => {
   try {
     const { postId } = req.params;
@@ -678,93 +434,6 @@ app.delete("/posts/:postId", verifyToken, async (req, res) => {
   } catch (error) {
     console.error("Error deleting post:", error);
     res.status(500).json({ message: "Error deleting post" });
-  }
-});
-
-// ========== COMMENT ROUTES ==========
-
-// get comments for a post (important: validates objectid, sorts oldest first)
-app.get("/posts/:postId/comments", async (req, res) => {
-  try {
-    const { postId } = req.params;
-    
-    // validate objectid format
-    if (!mongoose.Types.ObjectId.isValid(postId)) {
-      return res.status(400).json({ message: "Invalid post ID" });
-    }
-    
-    // get comments for this post, oldest first
-    const comments = await Comment.find({ postId: new mongoose.Types.ObjectId(postId) })
-      .sort({ createdAt: 1 })
-      .lean();
-
-    const formattedComments = comments.map(comment => ({
-      id: comment._id.toString(),
-      userId: comment.userId.toString(),
-      username: comment.username,
-      profilePicUrl: comment.profilePicUrl || "",
-      text: comment.text,
-      time: getTimeAgo(comment.createdAt)
-    }));
-
-    res.json(formattedComments);
-  } catch (error) {
-    console.error("Error fetching comments:", error);
-    res.status(500).json({ message: "Error fetching comments" });
-  }
-});
-
-// create a comment on a post (important: saves profilepicurl from user at time of creation)
-app.post("/posts/:postId/comments", verifyToken, async (req, res) => {
-  try {
-    const { postId } = req.params;
-    const { text } = req.body;
-
-    if (!text || text.trim() === "") {
-      return res.status(400).json({ message: "Comment text is required" });
-    }
-
-    // validate objectid format
-    if (!mongoose.Types.ObjectId.isValid(postId)) {
-      return res.status(400).json({ message: "Invalid post ID" });
-    }
-
-    // Verify post exists
-    const post = await Post.findById(postId);
-    if (!post) {
-      return res.status(404).json({ message: "Post not found" });
-    }
-
-    // Get user info
-    const user = await User.findById(req.userId);
-    if (!user) {
-      return res.status(404).json({ message: "User not found" });
-    }
-
-    const newComment = new Comment({
-      postId: new mongoose.Types.ObjectId(postId),
-      userId: new mongoose.Types.ObjectId(req.userId),
-      username: user.username,
-      profilePicUrl: user.profilePicUrl || "",
-      text: text.trim()
-    });
-
-    await newComment.save();
-
-    // Format comment for response
-    const formattedComment = {
-      id: newComment._id.toString(),
-      userId: newComment.userId.toString(),
-      username: newComment.username,
-      profilePicUrl: newComment.profilePicUrl || "",
-      text: newComment.text,
-      time: getTimeAgo(newComment.createdAt)
-    };
-
-    res.status(201).json({ message: "Comment created successfully", comment: formattedComment });
-  } catch (error) {
-    console.error("Error creating comment:", error);
-    res.status(500).json({ message: "Error creating comment" });
   }
 });
 

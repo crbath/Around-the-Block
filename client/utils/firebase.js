@@ -1,10 +1,16 @@
-// firebase storage helper for uploading images
-// handles uploading images to firebase and returning urls that we save in mongodb
+// Firebase Storage helper for uploading images
+// This file handles uploading images to Firebase Storage and returning URLs
+// Works on iOS, Android, and Web - ready for app store deployment
+
+// Note: You'll need to install firebase package:
+// npm install firebase
+// Then configure Firebase with your credentials
 
 import { initializeApp } from 'firebase/app';
 import { getStorage, ref, uploadBytesResumable, getDownloadURL } from 'firebase/storage';
 
-// firebase config (important: EXPO_PUBLIC_ prefix makes these available in mobile apps)
+// Firebase configuration - works on iOS, Android, and Web
+// EXPO_PUBLIC_ prefix makes these available in mobile apps during build
 const firebaseConfig = {
   apiKey: process.env.EXPO_PUBLIC_FIREBASE_API_KEY || "",
   authDomain: process.env.EXPO_PUBLIC_FIREBASE_AUTH_DOMAIN || "",
@@ -14,7 +20,7 @@ const firebaseConfig = {
   appId: process.env.EXPO_PUBLIC_FIREBASE_APP_ID || ""
 };
 
-// initialize firebase
+// Initialize Firebase
 let app;
 let storage;
 
@@ -26,35 +32,44 @@ try {
   console.warn("Error:", error.message);
 }
 
-// main upload function (important: converts local uri to blob, uploads to firebase, returns download url)
+/**
+ * Upload an image to Firebase Storage
+ * @param {string} imageUri - Local URI of the image (from expo-image-picker)
+ * @param {string} folder - Folder name ('posts' or 'profiles')
+ * @param {string} userId - User ID for unique naming
+ * @returns {Promise<string>} - Download URL of the uploaded image
+ */
 export async function uploadImageToFirebase(imageUri, folder = 'posts', userId = '') {
   if (!storage) {
     throw new Error("Firebase Storage not initialized. Please configure Firebase first.");
   }
 
   try {
-    // convert local uri to blob (important: react native needs this format)
+    // Convert local URI to blob for upload (works in React Native)
     const response = await fetch(imageUri);
     if (!response.ok) {
       throw new Error(`Failed to fetch image: ${response.statusText}`);
     }
     const blob = await response.blob();
 
-    // create unique filename with timestamp (important: prevents file collisions)
+    // Create a unique filename
     const timestamp = Date.now();
     const filename = userId 
       ? `${folder}/${userId}_${timestamp}.jpg`
       : `${folder}/${timestamp}.jpg`;
 
-    // create storage reference and upload
+    // Create a reference to the file
     const storageRef = ref(storage, filename);
+
+    // Upload the file
     const uploadTask = uploadBytesResumable(storageRef, blob);
 
-    // wait for upload to complete (important: tracks progress, handles errors)
+    // Wait for upload to complete
     await new Promise((resolve, reject) => {
       uploadTask.on(
         'state_changed',
         (snapshot) => {
+          // You can track upload progress here if needed
           const progress = (snapshot.bytesTransferred / snapshot.totalBytes) * 100;
           console.log(`Upload is ${progress}% done`);
         },
@@ -68,7 +83,7 @@ export async function uploadImageToFirebase(imageUri, folder = 'posts', userId =
       );
     });
 
-    // get download url (important: this is what we save in mongodb, not the file itself)
+    // Get the download URL
     const downloadURL = await getDownloadURL(uploadTask.snapshot.ref);
     return downloadURL;
   } catch (error) {
@@ -77,12 +92,22 @@ export async function uploadImageToFirebase(imageUri, folder = 'posts', userId =
   }
 }
 
-// upload profile picture (wrapper function for profiles folder)
+/**
+ * Upload a profile picture to Firebase Storage
+ * @param {string} imageUri - Local URI of the image
+ * @param {string} userId - User ID
+ * @returns {Promise<string>} - Download URL of the uploaded image
+ */
 export async function uploadProfilePicture(imageUri, userId) {
   return uploadImageToFirebase(imageUri, 'profiles', userId);
 }
 
-// upload post image (wrapper function for posts folder)
+/**
+ * Upload a post image to Firebase Storage
+ * @param {string} imageUri - Local URI of the image
+ * @param {string} userId - User ID
+ * @returns {Promise<string>} - Download URL of the uploaded image
+ */
 export async function uploadPostImage(imageUri, userId) {
   return uploadImageToFirebase(imageUri, 'posts', userId);
 }

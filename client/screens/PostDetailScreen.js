@@ -12,13 +12,11 @@ import {
   Platform,
   Modal,
   Dimensions,
-  Alert,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
-import { getComments, createComment, likePost } from '../api/api';
-import AsyncStorage from '@react-native-async-storage/async-storage';
+import api from '../api/api';
 
-// mock comments (fallback if backend fails)
+// Mock comments data (will be replaced with API call)
 const MOCK_COMMENTS = {
   '1': [
     { id: '1', username: 'Alex', text: 'I\'ve been meaning to try that place!', time: '1h' },
@@ -47,9 +45,9 @@ export default function PostDetailScreen({ route, navigation }) {
   const screenWidth = Dimensions.get('window').width;
   const screenHeight = Dimensions.get('window').height;
 
-  // load comments and initialize like state when screen loads
   useEffect(() => {
     loadComments();
+    // Initialize like state from post
     if (post.liked) {
       setLiked(true);
     }
@@ -58,62 +56,53 @@ export default function PostDetailScreen({ route, navigation }) {
     }
   }, [post.id]);
 
-  // reload comments when screen comes into focus (important: updates after adding comment)
-  useEffect(() => {
-    const unsubscribe = navigation.addListener('focus', () => {
-      loadComments();
-    });
-    return unsubscribe;
-  }, [navigation]);
-
-  // fetch comments from backend (important: falls back to mock data if backend fails)
+  // Fetch comments from backend or use mock data
   async function loadComments() {
     try {
-      const res = await getComments(post.id);
-      setComments(res.data || []);
+      // Try to fetch comments from backend
+      const res = await api.get(`/posts/${post.id}/comments`);
+      setComments(res.data);
     } catch (err) {
-      console.error('Error loading comments:', err);
-      // fallback to mock data if backend is down
+      // If backend fails, use mock data
       setComments(MOCK_COMMENTS[post.id] || []);
     }
     setLoading(false);
   }
 
-  // handle like button (important: optimistic UI update, reverts on error)
-  async function handleLike() {
-    const previousLiked = liked;
-    const previousLikeCount = likeCount;
-    
-    try {
-      // update UI immediately
-      const newLiked = !liked;
-      setLiked(newLiked);
-      setLikeCount(newLiked ? likeCount + 1 : Math.max(0, likeCount - 1));
-
-      // call backend to save like
-      await likePost(post.id);
-    } catch (error) {
-      // revert if api call failed
-      setLiked(previousLiked);
-      setLikeCount(previousLikeCount);
-      console.error('Error liking post:', error);
+  // Handle like button press
+  function handleLike() {
+    if (liked) {
+      setLiked(false);
+      setLikeCount(likeCount - 1);
+    } else {
+      setLiked(true);
+      setLikeCount(likeCount + 1);
     }
+    // TODO: Call API to update like status
   }
 
-  // handle comment submission (important: saves to backend, then reloads comments)
+  // Handle submitting a new comment
   async function handleSubmitComment() {
     if (!commentText.trim()) return;
 
     setSubmitting(true);
+    const newComment = {
+      id: Date.now().toString(),
+      username: 'You', // TODO: Get from user context/auth
+      text: commentText.trim(),
+      time: 'now',
+    };
+
     try {
-      // save comment to backend
-      await createComment(post.id, commentText.trim());
-      // reload comments to show new one
+      // Try to post comment to backend
+      await api.post(`/posts/${post.id}/comments`, { text: commentText.trim() });
+      // Reload comments after successful post
       await loadComments();
       setCommentText('');
     } catch (err) {
-      console.error('Error creating comment:', err);
-      Alert.alert('Error', 'Failed to post comment. Please try again.');
+      // If backend fails, add comment locally
+      setComments([...comments, newComment]);
+      setCommentText('');
     }
     setSubmitting(false);
   }
@@ -145,15 +134,11 @@ export default function PostDetailScreen({ route, navigation }) {
         <View style={styles.postCard}>
           {/* Header section with user profile icon and info */}
           <View style={styles.postHeader}>
-            {post.profilePicUrl ? (
-              <Image source={{ uri: post.profilePicUrl }} style={styles.avatarImage} />
-            ) : (
-              <View style={styles.avatar}>
-                <Text style={styles.avatarText}>
-                  {post.username ? post.username[0].toUpperCase() : '?'}
-                </Text>
-              </View>
-            )}
+            <View style={styles.avatar}>
+              <Text style={styles.avatarText}>
+                {post.username ? post.username[0].toUpperCase() : '?'}
+              </Text>
+            </View>
             <View>
               <Text style={styles.username}>{post.username}</Text>
               <Text style={styles.timestamp}>{post.time}</Text>
@@ -208,15 +193,11 @@ export default function PostDetailScreen({ route, navigation }) {
           ) : (
             comments.map((comment) => (
               <View key={comment.id} style={styles.commentItem}>
-                {comment.profilePicUrl ? (
-                  <Image source={{ uri: comment.profilePicUrl }} style={styles.commentAvatarImage} />
-                ) : (
-                  <View style={styles.commentAvatar}>
-                    <Text style={styles.commentAvatarText}>
-                      {comment.username ? comment.username[0].toUpperCase() : '?'}
-                    </Text>
-                  </View>
-                )}
+                <View style={styles.commentAvatar}>
+                  <Text style={styles.commentAvatarText}>
+                    {comment.username ? comment.username[0].toUpperCase() : '?'}
+                  </Text>
+                </View>
                 <View style={styles.commentContent}>
                   <View style={styles.commentHeader}>
                     <Text style={styles.commentUsername}>{comment.username}</Text>
@@ -354,12 +335,6 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
   },
-  avatarImage: {
-    width: 44,
-    height: 44,
-    borderRadius: 22,
-    marginRight: 12,
-  },
   avatarText: {
     color: '#FFFFFF',
     fontSize: 20,
@@ -439,12 +414,6 @@ const styles = StyleSheet.create({
     marginRight: 10,
     alignItems: 'center',
     justifyContent: 'center',
-  },
-  commentAvatarImage: {
-    width: 32,
-    height: 32,
-    borderRadius: 16,
-    marginRight: 10,
   },
   commentAvatarText: {
     color: '#FFFFFF',
