@@ -156,12 +156,20 @@ app.get("/users", verifyToken, async (req, res) => {
     }
 
     // Get all users except current user and existing friends
-    const friendIds = currentUser.friends.map(id => id.toString());
-    friendIds.push(req.userId);
+    // Convert to ObjectIds for proper MongoDB comparison
+    const friendIds = (currentUser.friends || []).map(id => 
+      typeof id === 'string' ? new mongoose.Types.ObjectId(id) : id
+    );
+    friendIds.push(new mongoose.Types.ObjectId(req.userId));
 
+    console.log("Current userId:", req.userId);
+    console.log("Friend IDs to exclude:", friendIds);
+    
     const users = await User.find({
       _id: { $nin: friendIds }
     }).select('username profilePicUrl birthday');
+
+    console.log("Found users:", users.length);
 
     // Transform users data
     const usersList = users.map(user => ({
@@ -175,7 +183,7 @@ app.get("/users", verifyToken, async (req, res) => {
     res.json(usersList);
   } catch (error) {
     console.error("Error fetching users:", error);
-    res.status(500).json({ message: "Error fetching users" });
+    res.status(500).json({ message: "Error fetching users", error: error.message });
   }
 });
 

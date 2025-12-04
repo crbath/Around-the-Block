@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
-import { View, Text, StyleSheet, FlatList, TouchableOpacity, ActivityIndicator, Modal, TextInput, Alert } from 'react-native';
+import { View, Text, StyleSheet, FlatList, TouchableOpacity, ActivityIndicator, Modal, Alert } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
-import { getFriends, addFriend } from '../../api/api';
+import { getFriends, addFriend, getAllUsers } from '../../api/api';
 
 const MOCK_FRIENDS = [
   { id: '1', username: 'alice', name: 'Alice Johnson' },
@@ -13,10 +13,17 @@ export default function FriendsScreen({ navigation }) {
   const [friends, setFriends] = useState([]);
   const [loading, setLoading] = useState(true);
   const [modalVisible, setModalVisible] = useState(false);
-  const [usernameInput, setUsernameInput] = useState('');
   const [addingFriend, setAddingFriend] = useState(false);
+  const [availableUsers, setAvailableUsers] = useState([]);
+  const [loadingUsers, setLoadingUsers] = useState(false);
 
   useEffect(() => { loadFriends(); }, []);
+
+  useEffect(() => {
+    if (modalVisible) {
+      loadAvailableUsers();
+    }
+  }, [modalVisible]);
 
   async function loadFriends() {
     try {
@@ -36,24 +43,39 @@ export default function FriendsScreen({ navigation }) {
     }
   }
 
+  async function loadAvailableUsers() {
+    try {
+      setLoadingUsers(true);
+      const res = await getAllUsers();
+      console.log('Available users response:', res.data);
+      setAvailableUsers(res.data || []);
+    } catch (err) {
+      console.error('Error loading available users:', err);
+      console.error('Error details:', err.response?.data);
+      setAvailableUsers([]);
+    } finally {
+      setLoadingUsers(false);
+    }
+  }
+
   async function handleAddFriend() {
     setModalVisible(true);
   }
 
-  async function handleSubmitAddFriend() {
-    if (!usernameInput.trim()) {
+  async function handleAddFriendByUsername(username) {
+    if (!username || !username.trim()) {
       Alert.alert('Error', 'Please enter a username');
       return;
     }
 
     try {
       setAddingFriend(true);
-      const res = await addFriend(usernameInput.trim());
+      const res = await addFriend(username.trim());
       Alert.alert('Success', res.data.message || 'Friend added successfully!');
       setModalVisible(false);
-      setUsernameInput('');
-      // Reload friends list
+      // Reload friends list and available users
       await loadFriends();
+      await loadAvailableUsers();
     } catch (error) {
       const errorMessage = error.response?.data?.message || 'Failed to add friend';
       Alert.alert('Error', errorMessage);
@@ -61,6 +83,7 @@ export default function FriendsScreen({ navigation }) {
       setAddingFriend(false);
     }
   }
+
 
   function handleFriendPress(friend) { 
     navigation.navigate('FriendProfile', { friend }); 
@@ -122,45 +145,67 @@ export default function FriendsScreen({ navigation }) {
         animationType="slide"
         transparent={true}
         visible={modalVisible}
-        onRequestClose={() => setModalVisible(false)}
+        onRequestClose={() => {
+          setModalVisible(false);
+        }}
       >
         <View style={styles.modalOverlay}>
           <View style={styles.modalContent}>
             <Text style={styles.modalTitle}>Add Friend</Text>
-            <Text style={styles.modalSubtitle}>Enter a username to add as a friend</Text>
-            
-            <TextInput
-              style={styles.input}
-              placeholder="Username"
-              placeholderTextColor="#9BA1A6"
-              value={usernameInput}
-              onChangeText={setUsernameInput}
-              autoCapitalize="none"
-              autoCorrect={false}
-            />
+            <Text style={styles.modalSubtitle}>Select a user to add as a friend</Text>
+
+            {/* Users List */}
+            {loadingUsers ? (
+              <View style={styles.loadingContainer}>
+                <ActivityIndicator size="small" color="#7EA0FF" />
+              </View>
+            ) : availableUsers.length > 0 ? (
+              <View style={styles.usersListContainer}>
+                <FlatList
+                  data={availableUsers}
+                  keyExtractor={(item) => item.id}
+                  renderItem={({ item }) => (
+                    <TouchableOpacity
+                      style={styles.userItem}
+                      onPress={() => handleAddFriendByUsername(item.username)}
+                      disabled={addingFriend}
+                    >
+                      <View style={styles.avatar}>
+                        <Text style={styles.avatarText}>
+                          {item.username ? item.username[0].toUpperCase() : '?'}
+                        </Text>
+                      </View>
+                      <View style={styles.userInfo}>
+                        <Text style={styles.userName}>@{item.username}</Text>
+                      </View>
+                      <TouchableOpacity
+                        style={styles.addIconButton}
+                        onPress={() => handleAddFriendByUsername(item.username)}
+                        disabled={addingFriend}
+                      >
+                        <Ionicons name="person-add" size={20} color="#7EA0FF" />
+                      </TouchableOpacity>
+                    </TouchableOpacity>
+                  )}
+                  style={styles.usersList}
+                  nestedScrollEnabled={true}
+                />
+              </View>
+            ) : (
+              <View style={styles.emptyContainer}>
+                <Text style={styles.emptyText}>No users available to add</Text>
+              </View>
+            )}
 
             <View style={styles.modalButtons}>
               <TouchableOpacity
                 style={[styles.modalButton, styles.cancelButton]}
                 onPress={() => {
                   setModalVisible(false);
-                  setUsernameInput('');
                 }}
                 disabled={addingFriend}
               >
-                <Text style={styles.cancelButtonText}>Cancel</Text>
-              </TouchableOpacity>
-              
-              <TouchableOpacity
-                style={[styles.modalButton, styles.submitButton]}
-                onPress={handleSubmitAddFriend}
-                disabled={addingFriend}
-              >
-                {addingFriend ? (
-                  <ActivityIndicator size="small" color="#FFFFFF" />
-                ) : (
-                  <Text style={styles.submitButtonText}>Add</Text>
-                )}
+                <Text style={styles.cancelButtonText}>Close</Text>
               </TouchableOpacity>
             </View>
           </View>
@@ -189,11 +234,17 @@ const styles = StyleSheet.create({
   modalContent: { backgroundColor: '#1A1A2E', borderRadius: 20, padding: 24, width: '80%', maxWidth: 400 },
   modalTitle: { color: '#FFFFFF', fontSize: 24, fontWeight: 'bold', marginBottom: 8, textAlign: 'center' },
   modalSubtitle: { color: '#9BA1A6', fontSize: 14, marginBottom: 20, textAlign: 'center' },
-  input: { backgroundColor: '#0B0D17', borderRadius: 10, padding: 12, color: '#FFFFFF', fontSize: 16, marginBottom: 20, borderWidth: 1, borderColor: '#333' },
-  modalButtons: { flexDirection: 'row', justifyContent: 'space-between', gap: 12 },
-  modalButton: { flex: 1, padding: 14, borderRadius: 10, alignItems: 'center' },
+  modalButtons: { flexDirection: 'row', justifyContent: 'center', marginTop: 10 },
+  modalButton: { padding: 14, borderRadius: 10, alignItems: 'center', minWidth: 100 },
   cancelButton: { backgroundColor: '#333' },
   cancelButtonText: { color: '#FFFFFF', fontSize: 16, fontWeight: 'bold' },
-  submitButton: { backgroundColor: '#7EA0FF' },
-  submitButtonText: { color: '#FFFFFF', fontSize: 16, fontWeight: 'bold' },
+  usersListContainer: { maxHeight: 300, marginBottom: 20 },
+  usersList: { flexGrow: 0 },
+  userItem: { flexDirection: 'row', alignItems: 'center', padding: 12, backgroundColor: '#0B0D17', borderRadius: 8, marginBottom: 8 },
+  userInfo: { flex: 1, marginLeft: 12 },
+  userName: { color: '#FFFFFF', fontSize: 16, fontWeight: '500' },
+  addIconButton: { padding: 8 },
+  loadingContainer: { alignItems: 'center', padding: 20 },
+  emptyContainer: { alignItems: 'center', padding: 20 },
+  emptyText: { color: '#9BA1A6', fontSize: 14, textAlign: 'center' },
 });

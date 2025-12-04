@@ -57,4 +57,6 @@ export const getFriends = () => api.get('/friends');
 
 export const addFriend = (username) => api.post('/friends', { username });
 
+export const getAllUsers = () => api.get('/users');
+
 export default api;
