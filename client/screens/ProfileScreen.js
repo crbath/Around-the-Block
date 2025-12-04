@@ -1,13 +1,17 @@
 import React, { useState, useEffect } from 'react';
-import { View, Text, StyleSheet, Image, TouchableOpacity, FlatList, ActivityIndicator, ScrollView } from 'react-native';
+import { View, Text, StyleSheet, Image, TouchableOpacity, FlatList, ActivityIndicator, ScrollView, Alert } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import * as ImagePicker from 'expo-image-picker'
 import {useNavigation} from '@react-navigation/native'
-import api from '../api/api'
+import { getProfile, getUserPosts, updateProfile } from '../api/api'
+import { uploadProfilePicture } from '../utils/firebase'
+import PostCard from '../components/PostCard'
 
 export default function ProfileScreen() {
   const [profile, setProfile] = useState(null)
+  const [posts, setPosts] = useState([])
   const [loading, setLoading] = useState(true)
+  const [uploadingPic, setUploadingPic] = useState(false)
   //eventually navigate to friends page
   const navigation = useNavigation();
 
@@ -15,26 +19,94 @@ export default function ProfileScreen() {
     fetchProfile()
   }, [])
 
+  // Reload profile when screen comes into focus (e.g., after logging back in)
+  useEffect(() => {
+    const unsubscribe = navigation.addListener('focus', () => {
+      fetchProfile()
+    });
+    return unsubscribe;
+  }, [navigation])
+
+  useEffect(()=> {
+    if (profile) {
+      fetchUserPosts()
+    }
+  }, [profile])
+
   const fetchProfile = async () => {
-    //set basic profile -- NEED TO IMPLEMENT FETCH FUNCTION... HOW TO FETCH FROM MONGO? WORKING ON SOMETHING ATM
-    setProfile({username: 'User 1', birthday: '1/1/0000', friends: []
-    })
+    try {
+      const res = await getProfile()
+      const profileData = res.data
+      setProfile(profileData)
+      
+      // Store userId if we have it
+      if (profileData._id) {
+        await AsyncStorage.setItem('userId', profileData._id.toString())
+      }
+    } catch (error) {
+      console.error('Error fetching profile:', error)
+      // Fallback to basic profile
+      const username = await AsyncStorage.getItem('user')
+      setProfile({username: username || 'User', birthday: '', friends: []})
+    }
     setLoading(false)
-  
+  }
+
+  const fetchUserPosts = async () => {
+    try {
+      let userId = await AsyncStorage.getItem('userId')
+      if (!userId && profile?._id) {
+        userId = profile._id.toString()
+      }
+      if (userId) {
+        const res = await getUserPosts(userId)
+        setPosts(res.data || [])
+      }
+    } catch (error) {
+      console.error('Error fetching user posts:', error)
+    }
   }
 
   const handleUpload = async () => {
-    const permission = await ImagePicker.requestMediaLibraryPermissionAsync()
-    if (!permission.granted) return
+    const permission = await ImagePicker.requestMediaLibraryPermissionsAsync()
+    if (!permission.granted) {
+      Alert.alert('Permission needed', 'Please grant permission to access your photos')
+      return
+    }
     
-    const result = await ImagePicker.launchImageLibraryAsync({
-      mediaTypes: ImagePicker.launchImageLibraryAsync,
-      allowsEditing: true,
-      quality: 1,
-    })
+    try {
+      const result = await ImagePicker.launchImageLibraryAsync({
+        mediaTypes: ImagePicker.MediaTypeOptions.Images,
+        allowsEditing: true,
+        aspect: [1, 1],
+        quality: 0.8,
+      })
 
-    if (!result.canceled){
-      //upload this image somewhere... should we be using firebase???
+      if (!result.canceled && result.assets[0]) {
+        setUploadingPic(true)
+        const userId = await AsyncStorage.getItem('userId') || profile?._id?.toString() || 'anonymous'
+        const imageUrl = await uploadProfilePicture(result.assets[0].uri, userId)
+        
+        // Save profile picture URL to database
+        try {
+          const response = await updateProfile({ profilePicUrl: imageUrl });
+          // Update local state
+          setProfile({...profile, profilePicUrl: imageUrl})
+          Alert.alert('Success', 'Profile picture updated!')
+        } catch (error) {
+          console.error('Error saving profile picture to database:', error)
+          console.error('Error response:', error.response?.data)
+          console.error('Error status:', error.response?.status)
+          // Still update local state so user sees the picture, but warn them
+          setProfile({...profile, profilePicUrl: imageUrl})
+          Alert.alert('Warning', 'Picture uploaded but may not be saved. Please restart your backend server and try again.')
+        }
+        setUploadingPic(false)
+      }
+    } catch (error) {
+      console.error('Error uploading profile picture:', error)
+      Alert.alert('Error', 'Failed to upload profile picture')
+      setUploadingPic(false)
     }
   }
 
@@ -68,12 +140,16 @@ export default function ProfileScreen() {
     <View style={styles.container}>
   
       <View style={styles.header}>
-        <TouchableOpacity onPress={handleUpload}>
-          {profile.profilePicture?
-             <Image source= {{uri: profile.profilePicture}} style = {styles.profilePic}/>
-              :
-             <Text style={{color:'white'}}>Insert Image Here</Text>
-          }
+        <TouchableOpacity onPress={handleUpload} disabled={uploadingPic}>
+          {uploadingPic ? (
+            <ActivityIndicator size="large" color="#7EA0FF" style={styles.profilePic} />
+          ) : profile.profilePicUrl ? (
+            <Image source={{uri: profile.profilePicUrl}} style={styles.profilePic}/>
+          ) : (
+            <View style={[styles.profilePic, styles.profilePicPlaceholder]}>
+              <Text style={{color:'white', fontSize: 12}}>Tap to add photo</Text>
+            </View>
+          )}
         </TouchableOpacity>
 
         <View style={styles.info}>
@@ -90,10 +166,21 @@ export default function ProfileScreen() {
 
 
       </View>
-      <Text style={[styles.text, {paddingTop:20, textAlign:'center'}]}>Memories here</Text>
-      <ScrollView contentContainerStyle={styles.container}>
-        {/* grid of images -- need to figure out how we're storing images */}
-      </ScrollView>
+      <Text style={[styles.text, {paddingTop:20, paddingBottom: 10, textAlign:'center'}]}>Your Posts</Text>
+      {posts.length > 0 ? (
+        <FlatList
+          data={posts}
+          keyExtractor={(item) => item.id}
+          renderItem={({ item }) => (
+            <PostCard post={item} navigation={navigation} />
+          )}
+          scrollEnabled={false}
+        />
+      ) : (
+        <View style={styles.emptyPosts}>
+          <Text style={styles.emptyPostsText}>No posts yet. Create your first post!</Text>
+        </View>
+      )}
     </View>
     </View>
     // </ScrollView>
@@ -117,6 +204,20 @@ const styles = StyleSheet.create({
     borderRadius: 50,
     borderWidth: 2,
     borderColor: '#fff',
+  },
+  profilePicPlaceholder: {
+    backgroundColor: '#1A1A2E',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  emptyPosts: {
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 40,
+  },
+  emptyPostsText: {
+    color: '#9BA1A6',
+    fontSize: 16,
   },
   info: {
     marginLeft: 20,

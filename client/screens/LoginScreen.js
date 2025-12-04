@@ -12,10 +12,14 @@ export default function LoginScreen({ navigation }) {
     try {
       const response = await api.post('/login', { username, password });
       const token = response.data.token;
-       console.log(JSON.stringify(response.data))
+      const userId = response.data.userId; // Assuming backend returns userId
+      console.log(JSON.stringify(response.data))
 
       await AsyncStorage.setItem('token', token);
-      await AsyncStorage.setItem('user', JSON.stringify(username))
+      await AsyncStorage.setItem('user', JSON.stringify(username));
+      if (userId) {
+        await AsyncStorage.setItem('userId', userId);
+      }
       setMessage('Login successful');
 
       // Navigate to Home (make sure this route exists)
