@@ -12,7 +12,12 @@ app.use(express.json());
 app.use(cors());
 
 // MongoDB connection
-mongoose.connect(process.env.MONGO_URI)
+const mongoUri = process.env.MONGO_URI || 'mongodb://127.0.0.1:27017/aroundtheblock';
+if (!process.env.MONGO_URI) {
+  console.warn('[backend] MONGO_URI not set. Falling back to local MongoDB at', mongoUri);
+}
+
+mongoose.connect(mongoUri)
   .then(() => console.log("Connected to MongoDB"))
   .catch(err => console.error("MongoDB connection error:", err));
 
@@ -43,8 +48,6 @@ const barSchema = new mongoose.Schema({
     }
   ]
 })
-
-
 
 const barPostSchema = new mongoose.Schema({
   barId: {type:String, ref:'BarTime', required: true},
