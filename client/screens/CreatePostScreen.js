@@ -2,135 +2,170 @@ import React, { useState } from 'react';
 import {
   View,
   Text,
-  StyleSheet,
   TextInput,
+  StyleSheet,
   TouchableOpacity,
   Image,
+  ActivityIndicator,
   Alert,
-  Platform,
+  ScrollView,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import * as ImagePicker from 'expo-image-picker';
-import api from '../api/api';
+import { uploadPostImage } from '../utils/firebase';
+import { createPost } from '../api/api';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
 export default function CreatePostScreen({ navigation }) {
-  // state for the post text, image uri, and whether we're submitting
-  const [text, setText] = useState('');
-  const [image, setImage] = useState(null);
-  const [submitting, setSubmitting] = useState(false);
+  const [content, setContent] = useState('');
+  const [imageUri, setImageUri] = useState(null);
+  const [uploading, setUploading] = useState(false);
 
-  // opens the phone's photo gallery so user can pick an image
-  async function pickImage() {
-    // first we need to ask permission to access photos
-    const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
-    if (status !== 'granted') {
-      Alert.alert('Permission needed', 'We need access to your photos to add an image.');
-      return;
-    }
-
-    // open the image picker with some options
-    const result = await ImagePicker.launchImageLibraryAsync({
-      mediaTypes: ImagePicker.MediaTypeOptions.Images,
-      allowsEditing: true, // let them crop/edit the image
-      aspect: [4, 3], // maintain aspect ratio
-      quality: 0.8, // compress it a bit
-    });
-
-    // if they didn't cancel, save the image uri
-    if (!result.canceled) {
-      setImage(result.assets[0].uri);
-    }
-  }
-
-  // when user clicks the post button, submit everything
-  async function handleSubmit() {
-    // make sure they at least added text or an image
-    if (!text.trim() && !image) {
-      Alert.alert('Empty post', 'Please add some text or an image to your post.');
-      return;
-    }
-
-    setSubmitting(true);
+  const pickImage = async () => {
     try {
-      // get the current user's username from storage
-      const user = await AsyncStorage.getItem('user');
-      const username = user ? JSON.parse(user) : 'You';
+      const permission = await ImagePicker.requestMediaLibraryPermissionsAsync();
+      if (!permission.granted) {
+        Alert.alert('Permission needed', 'Please grant permission to access your photos');
+        return;
+      }
 
-      // package up all the post data
-      const postData = {
-        text: text.trim(),
-        image: image || null,
-        username: username,
-      };
+      const result = await ImagePicker.launchImageLibraryAsync({
+        mediaTypes: ImagePicker.MediaTypeOptions.Images,
+        allowsEditing: true,
+        aspect: [4, 3],
+        quality: 0.8,
+      });
 
-      // send it to the backend
-      await api.post('/posts', postData);
+      if (!result.canceled && result.assets[0]) {
+        setImageUri(result.assets[0].uri);
+      }
+    } catch (error) {
+      console.error('Error picking image:', error);
+      Alert.alert('Error', 'Failed to pick image');
+    }
+  };
 
-      // go back to feed after successful post
+  const handlePost = async () => {
+    if (!content.trim()) {
+      Alert.alert('Error', 'Please enter some content for your post');
+      return;
+    }
+
+    setUploading(true);
+    try {
+      let imageUrl = '';
+      
+      // Upload image to Firebase if one was selected
+      if (imageUri) {
+        const userId = await AsyncStorage.getItem('user');
+        imageUrl = await uploadPostImage(imageUri, userId || 'anonymous');
+      }
+
+      // Create post with content and image URL
+      const postContent = String(content || '').trim();
+      const postImageUrl = imageUrl || '';
+      
+      console.log('Creating post with:', { 
+        content: postContent, 
+        contentLength: postContent.length,
+        imageUrl: postImageUrl,
+        imageUrlLength: postImageUrl.length
+      });
+      
+      if (!postContent) {
+        Alert.alert('Error', 'Please enter some content for your post');
+        setUploading(false);
+        return;
+      }
+      
+      const response = await createPost(postContent, postImageUrl);
+      console.log('Post created successfully:', response.data);
+
+      // Reset form
+      setContent('');
+      setImageUri(null);
+
+      // Navigate back
       navigation.goBack();
+      Alert.alert('Success', 'Post created successfully!');
     } catch (error) {
       console.error('Error creating post:', error);
-      Alert.alert('Error', 'Failed to create post. Please try again.');
+      console.error('Error response data:', error.response?.data);
+      console.error('Error response status:', error.response?.status);
+      console.error('Error response headers:', error.response?.headers);
+      console.error('Full error:', JSON.stringify(error.response?.data, null, 2));
+      const errorMessage = error.response?.data?.message || error.message || 'Failed to create post. Please try again.';
+      Alert.alert('Error', errorMessage);
+    } finally {
+      setUploading(false);
     }
-    setSubmitting(false);
-  }
+  };
 
   return (
     <View style={styles.container}>
-      {/* header with close button and post button */}
+      {/* Header */}
       <View style={styles.header}>
-        <TouchableOpacity
-          onPress={() => navigation.goBack()}
-          style={styles.backButton}
-        >
+        <TouchableOpacity onPress={() => navigation.goBack()}>
           <Ionicons name="close" size={28} color="#FFFFFF" />
         </TouchableOpacity>
         <Text style={styles.headerTitle}>Create Post</Text>
-        {/* post button - disabled and grayed out while submitting */}
         <TouchableOpacity
-          onPress={handleSubmit}
-          style={[styles.postButton, submitting && styles.postButtonDisabled]}
-          disabled={submitting}
+          onPress={handlePost}
+          disabled={uploading || !content.trim()}
+          style={[
+            styles.postButton,
+            (!content.trim() || uploading) && styles.postButtonDisabled,
+          ]}
         >
-          <Text style={styles.postButtonText}>Post</Text>
+          {uploading ? (
+            <ActivityIndicator size="small" color="#FFFFFF" />
+          ) : (
+            <Text style={styles.postButtonText}>Post</Text>
+          )}
         </TouchableOpacity>
       </View>
 
-      {/* main content area */}
-      <View style={styles.content}>
-        {/* text input for the post */}
+      <ScrollView style={styles.content}>
+        {/* User info placeholder */}
+        <View style={styles.userInfo}>
+          <View style={styles.avatar}>
+            <Text style={styles.avatarText}>U</Text>
+          </View>
+          <Text style={styles.username}>You</Text>
+        </View>
+
+        {/* Text input */}
         <TextInput
           style={styles.textInput}
-          placeholder="What's up?"
+          placeholder="What's on your mind?"
           placeholderTextColor="#9BA1A6"
-          value={text}
-          onChangeText={setText}
+          value={content}
+          onChangeText={setContent}
           multiline
-          maxLength={500}
-          autoFocus
+          textAlignVertical="top"
         />
 
-        {/* show image preview if user selected one */}
-        {image && (
+        {/* Image preview */}
+        {imageUri && (
           <View style={styles.imageContainer}>
-            <Image source={{ uri: image }} style={styles.previewImage} />
-            {/* button to remove the image */}
+            <Image source={{ uri: imageUri }} style={styles.previewImage} />
             <TouchableOpacity
               style={styles.removeImageButton}
-              onPress={() => setImage(null)}
+              onPress={() => setImageUri(null)}
             >
-              <Ionicons name="close-circle" size={32} color="#FFFFFF" />
+              <Ionicons name="close-circle" size={32} color="#FF6B6B" />
             </TouchableOpacity>
           </View>
         )}
 
-        {/* button to open photo picker */}
+        {/* Add image button */}
         <TouchableOpacity style={styles.addImageButton} onPress={pickImage}>
           <Ionicons name="image-outline" size={24} color="#7EA0FF" />
-          <Text style={styles.addImageText}>Add Photo</Text>
+          <Text style={styles.addImageText}>
+            {imageUri ? 'Change Image' : 'Add Image'}
+          </Text>
         </TouchableOpacity>
-      </View>
+      </ScrollView>
     </View>
   );
 }
@@ -151,57 +186,74 @@ const styles = StyleSheet.create({
     borderBottomWidth: 1,
     borderBottomColor: '#2A2A3E',
   },
-  backButton: {
-    width: 40,
-    height: 40,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
   headerTitle: {
     fontSize: 20,
     fontWeight: 'bold',
     color: '#FFFFFF',
   },
   postButton: {
-    paddingHorizontal: 16,
+    backgroundColor: '#7EA0FF',
+    paddingHorizontal: 20,
     paddingVertical: 8,
     borderRadius: 20,
-    backgroundColor: '#7EA0FF',
   },
   postButtonDisabled: {
+    backgroundColor: '#2A2A3E',
     opacity: 0.5,
   },
   postButtonText: {
     color: '#FFFFFF',
-    fontWeight: '600',
-    fontSize: 16,
+    fontWeight: 'bold',
   },
   content: {
     flex: 1,
     padding: 16,
   },
+  userInfo: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 16,
+  },
+  avatar: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: '#7EA0FF',
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginRight: 12,
+  },
+  avatarText: {
+    color: '#FFFFFF',
+    fontSize: 18,
+    fontWeight: 'bold',
+  },
+  username: {
+    color: '#FFFFFF',
+    fontSize: 16,
+    fontWeight: 'bold',
+  },
   textInput: {
     color: '#FFFFFF',
     fontSize: 16,
     minHeight: 150,
-    textAlignVertical: 'top',
     marginBottom: 16,
   },
   imageContainer: {
-    position: 'relative', // so we can position the remove button absolutely inside it
+    position: 'relative',
     marginBottom: 16,
-    borderRadius: 10,
+    borderRadius: 8,
     overflow: 'hidden',
   },
   previewImage: {
     width: '100%',
     height: 300,
-    borderRadius: 10,
+    borderRadius: 8,
   },
   removeImageButton: {
     position: 'absolute',
-    top: 10,
-    right: 10,
+    top: 8,
+    right: 8,
     backgroundColor: 'rgba(0, 0, 0, 0.5)',
     borderRadius: 16,
   },
@@ -210,16 +262,15 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     padding: 16,
     backgroundColor: '#1A1A2E',
-    borderRadius: 10,
+    borderRadius: 8,
     borderWidth: 1,
-    borderColor: '#7EA0FF',
+    borderColor: '#2A2A3E',
     borderStyle: 'dashed',
   },
   addImageText: {
     color: '#7EA0FF',
+    marginLeft: 8,
     fontSize: 16,
-    marginLeft: 12,
-    fontWeight: '500',
   },
 });
 

@@ -58,16 +58,15 @@ export default function FriendsScreen({ navigation }) {
       <View style={styles.container}>
         <View style={styles.header}>
           {/* Back button to return to feed */}
-          <TouchableOpacity 
+          <TouchableOpacity
             onPress={() => navigation.goBack()}
             style={styles.backButton}
           >
-
             <Ionicons name="arrow-back" size={24} color="#FFFFFF" />
           </TouchableOpacity>
           <Text style={styles.headerTitle}>Friends</Text>
           {/* Add friend button in header */}
-          <TouchableOpacity 
+          <TouchableOpacity
             onPress={handleAddFriend}
             style={styles.addButton}
           >
@@ -88,26 +87,23 @@ export default function FriendsScreen({ navigation }) {
 
       <View style={styles.header}>
         {/* back button to return to feed screen */}
-        <TouchableOpacity 
+        <TouchableOpacity
           onPress={() => navigation.goBack()}
           style={styles.backButton}
         >
-
           <Ionicons name="arrow-back" size={24} color="#FFFFFF" />
         </TouchableOpacity>
         <Text style={styles.headerTitle}>Friends</Text>
         {/* add friend button in top right */}
-        <TouchableOpacity 
+        <TouchableOpacity
           onPress={handleAddFriend}
           style={styles.addButton}
         >
-
           <Ionicons name="add" size={28} color="#7EA0FF" />
         </TouchableOpacity>
       </View>
 
       <FlatList
-        
         data={friends} // Array of friends to display
         keyExtractor={(item) => item.id} // Unique key for each friend
         renderItem={({ item }) => {

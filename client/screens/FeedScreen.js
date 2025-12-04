@@ -10,7 +10,7 @@ import {
   TouchableOpacity,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
-import api from '../api/api';
+import { getPosts } from '../api/api';
 import PostCard from '../components/PostCard';
 
 // mock posts
@@ -62,21 +62,22 @@ export default function FeedScreen({ navigation }) {
   async function loadPosts() {
     try {
       // try to get posts from backend API
-      const res = await api.get('/posts');
+      const res = await getPosts();
       setPosts(res.data);
     } catch (err) {
+      console.error('Error loading posts:', err);
       // if backend fails, use mock data
       setPosts(MOCK_POSTS);
     }
     setLoading(false); // done loading
   }
 
-  // // function called when user pulls down to refresh
-  // async function handleRefresh() {
-  //   setRefreshing(true); // Show refresh spinner
-  //   await loadPosts(); // Reload posts
-  //   setRefreshing(false); // Hide refresh spinner
-  // }
+  // function called when user pulls down to refresh
+  async function handleRefresh() {
+    setRefreshing(true); // Show refresh spinner
+    await loadPosts(); // Reload posts
+    setRefreshing(false); // Hide refresh spinner
+  }
 
   // loading spinner while data is being fetched
   if (loading) {
@@ -90,16 +91,25 @@ export default function FeedScreen({ navigation }) {
   // show feed with posts
   return (
     <View style={styles.container}>
-      {/* header with title and friends button */}
+      {/* header with title and buttons */}
       <View style={styles.header}>
         <Text style={styles.headerTitle}>Feed</Text>
-        {/* button to navigate to friends screen */}
-        <TouchableOpacity 
-          onPress={() => navigation.navigate('Friends')}
-          style={styles.friendsButton}
-        >
-          <Ionicons name="people" size={28} color="#7EA0FF" />
-        </TouchableOpacity>
+        <View style={styles.headerButtons}>
+          {/* button to create new post */}
+          <TouchableOpacity 
+            onPress={() => navigation.navigate('CreatePost')}
+            style={styles.createButton}
+          >
+            <Ionicons name="add-circle-outline" size={28} color="#7EA0FF" />
+          </TouchableOpacity>
+          {/* button to navigate to friends screen */}
+          <TouchableOpacity 
+            onPress={() => navigation.navigate('Friends')}
+            style={styles.friendsButton}
+          >
+            <Ionicons name="people" size={28} color="#7EA0FF" />
+          </TouchableOpacity>
+        </View>
       </View>
 
       {/* list of posts - FlatList efficiently renders long lists */}
@@ -111,22 +121,10 @@ export default function FeedScreen({ navigation }) {
           // Pass navigation prop so PostCard can navigate to detail screen
           return <PostCard post={{ ...item, navigation }} />;
         }}
-
-
-
-        // refreshControl={
-        //  <RefreshControl refreshing={refreshing} onRefresh={handleRefresh} tintColor="#7EA0FF" />
-        //}
+        refreshControl={
+          <RefreshControl refreshing={refreshing} onRefresh={handleRefresh} tintColor="#7EA0FF" />
+        }
       />
-
-      {/* floating plus button to create new post */}
-      <TouchableOpacity
-        style={styles.fab}
-        onPress={() => navigation.navigate('CreatePost')}
-        activeOpacity={0.8}
-      >
-        <Ionicons name="add" size={32} color="#FFFFFF" />
-      </TouchableOpacity>
     </View>
   );
 }
@@ -146,41 +144,26 @@ const styles = StyleSheet.create({
   },
   header: {
     flexDirection: 'row',
-    justifyContent: 'center',
+    justifyContent: 'space-between',
     alignItems: 'center',
     paddingTop: 50,
     paddingBottom: 16,
     paddingHorizontal: 16,
     backgroundColor: '#0B0D17',
-    position: 'relative',
   },
   headerTitle: {
     fontSize: 24,
     fontWeight: 'bold',
     color: '#FFFFFF',
   },
+  headerButtons: {
+    flexDirection: 'row',
+    gap: 12,
+  },
+  createButton: {
+    padding: 8,
+  },
   friendsButton: {
     padding: 8,
-    position: 'absolute',
-    right: 16,
-  },
-  fab: {
-    position: 'absolute',
-    bottom: 30,
-    right: 20,
-    width: 60,
-    height: 60,
-    borderRadius: 30,
-    backgroundColor: '#7EA0FF',
-    alignItems: 'center',
-    justifyContent: 'center',
-    shadowColor: '#000',
-    shadowOffset: {
-      width: 0,
-      height: 4,
-    },
-    shadowOpacity: 0.3,
-    shadowRadius: 8,
-    elevation: 8,
   },
 });

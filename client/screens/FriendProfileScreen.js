@@ -10,7 +10,7 @@ import {
   FlatList,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
-import api from '../api/api';
+import { getUserPosts } from '../api/api';
 import PostCard from '../components/PostCard';
 
 // mock data for when the backend isn't ready yet
@@ -76,10 +76,30 @@ export default function FriendProfileScreen({ route, navigation }) {
   // fetch the friend's profile data from the backend, or use mock data if backend fails
   async function loadFriendProfile() {
     try {
-      // try to get the profile from the backend
-      const res = await api.get(`/users/${friend.id}/profile`);
-      setProfile(res.data);
-      setIsFollowing(res.data.isFollowing || false);
+      // For now, use friend data passed from navigation
+      // You can add a user profile endpoint later
+      const friendProfile = {
+        ...friend,
+        bio: friend.bio || 'No bio available',
+        postsCount: 0,
+        friendsCount: 0,
+        isFollowing: false,
+        recentPosts: [],
+      };
+      setProfile(friendProfile);
+      setIsFollowing(friendProfile.isFollowing || false);
+      
+      // Fetch friend's posts
+      if (friend.id) {
+        try {
+          const postsRes = await getUserPosts(friend.id);
+          friendProfile.recentPosts = postsRes.data || [];
+          friendProfile.postsCount = friendProfile.recentPosts.length;
+          setProfile({...friendProfile});
+        } catch (err) {
+          console.error('Error fetching friend posts:', err);
+        }
+      }
     } catch (err) {
       // if the api call fails, just use mock data instead
       const mockProfile = MOCK_FRIEND_PROFILES[friend.id] || {
@@ -234,7 +254,7 @@ export default function FriendProfileScreen({ route, navigation }) {
 
         {/* section showing all of this friend's posts */}
         <View style={styles.postsSection}>
-          <Text style={styles.sectionTitle}>Posts</Text>
+          <Text style={styles.sectionTitle}>Posts ({profile.postsCount || 0})</Text>
           {profile.recentPosts && profile.recentPosts.length > 0 ? (
             // show the posts using the PostCard component
             <FlatList
