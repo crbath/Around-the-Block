@@ -15,6 +15,8 @@ export default function BarProfileScreen({ route, navigation }) {
   const [deals, setDeals] = useState(bar.deals || '');
   const [hours, setHours] = useState(bar.hours || '');
   const [editing, setEditing] = useState(false);
+  const [location, setLocation] = useState(null)
+
 
   useEffect(() => {
     if (!bar) return;
@@ -34,6 +36,28 @@ export default function BarProfileScreen({ route, navigation }) {
     };
     checkBarOwner();
   }, [bar]);
+
+  useEffect(() => {
+
+    (async () => {
+
+      let { status } = await Location.requestForegroundPermissionsAsync()
+
+      if (status !== 'granted') {
+
+        setErrorMessage("Permission to access location was denied. You must allow access to use the app.")
+
+        Alert.alert("Permission denied, you must allow location services to use the app")
+
+      }
+
+      let loc = await Location.getCurrentPositionAsync({})
+
+      setLocation(loc.coords)
+
+    })()
+
+  }, [])
 
   const fetchBarInfo = async () => {
     try {
@@ -62,7 +86,46 @@ export default function BarProfileScreen({ route, navigation }) {
     }
   };
 
+  function getDistanceFromBar(lat1, long1, lat2, long2) {
+
+    const R = 6371000
+
+    const o1 = lat1 * Math.PI / 180
+
+    const o2 = lat2 * Math.PI / 180
+
+    const dO1 = (lat2 - lat1) * Math.PI / 180
+
+    const dLam = (long2 - long1) * Math.PI / 180
+
+    const a = Math.sin(dO1 / 2) * Math.sin(dO1 / 2) + Math.cos(o1) * Math.cos(o2) * Math.sin(dLam / 2) * Math.sin(dLam / 2)
+
+    const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a))
+
+    const d = R * c
+
+    return d
+
+  }
+
+
+
+  const isNearBar = () => {
+
+    if (!bar || !location) return false;
+
+    return getDistanceFromBar(location.latitude, location.longitude, bar.latitude, bar.longitude) <= 100
+
+  };
+
+
   const submitTime = async () => {
+    console.log(isNearBar())
+    if (!isNearBar()) {
+      Alert.alert("You are too far from the bar!")
+      return
+    }
+
     try {
       setLoading(true);
       const token = await AsyncStorage.getItem('token');
@@ -83,6 +146,9 @@ export default function BarProfileScreen({ route, navigation }) {
       setModalVisible(false);
       await fetchBarData();
     } catch (err) {
+      if (err.status === 403) {
+        Alert.alert("You are too far to submit a wait time!")
+      }
       console.log('Error submitting time:', err);
       Alert.alert('Error', err.response?.data?.message || 'Failed to submit wait time');
     } finally {
