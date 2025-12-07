@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, Image, Alert } from 'react-native';
 import { Audio } from 'expo-av';
+import { useFocusEffect } from '@react-navigation/native';
 
 export default function TalkingBenMinigameScreen({ navigation }) {
   const [recording, setRecording] = useState(null);
@@ -30,20 +31,42 @@ export default function TalkingBenMinigameScreen({ navigation }) {
     );
   };
 
-  useEffect(() => {
-    Audio.setAudioModeAsync({
-      allowsRecordingIOS: true,
-    });
+  useFocusEffect(
+    React.useCallback(() => {
+      // Screen is focused - setup audio
+      Audio.setAudioModeAsync({
+        allowsRecordingIOS: true,
+        playsInSilentModeIOS: true,
+      });
 
-    return () => {
-      if (recording) {
-        recording.stopAndUnloadAsync();
-      }
-      if (sound) {
-        sound.unloadAsync();
-      }
-    };
-  }, []);
+      return () => {
+        // Screen is unfocused - cleanup
+        const cleanup = async () => {
+          if (recording) {
+            console.log('Cleaning up recording...');
+            try {
+              await recording.stopAndUnloadAsync();
+            } catch (e) {
+              console.log('Recording already stopped');
+            }
+            setRecording(null);
+            setIsRecording(false);
+          }
+          if (sound) {
+            console.log('Cleaning up sound...');
+            try {
+              await sound.unloadAsync();
+            } catch (e) {
+              console.log('Sound already unloaded');
+            }
+            setSound(null);
+            setIsPlaying(false);
+          }
+        };
+        cleanup();
+      };
+    }, [recording, sound])
+  );
 
   const startRecording = async () => {
     try {
