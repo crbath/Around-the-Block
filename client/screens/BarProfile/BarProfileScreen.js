@@ -149,8 +149,7 @@ export default function BarProfileScreen({ route, navigation }) {
       if (err.status === 403) {
         Alert.alert("You are too far to submit a wait time!")
       }
-      console.log('Error submitting time:', err);
-      Alert.alert('Error', err.response?.data?.message || 'Failed to submit wait time');
+      Alert.alert('Failed to submit wait time');
     } finally {
       setLoading(false);
     }
@@ -173,7 +172,7 @@ export default function BarProfileScreen({ route, navigation }) {
       setEditing(false);
       await fetchBarInfo();
     } catch (err) {
-      Alert.alert('Error: could not set bar information.', err.message);
+      Alert.alert('Error: could not set bar information.');
     }
   };
 
@@ -290,10 +289,11 @@ export default function BarProfileScreen({ route, navigation }) {
               const token = await AsyncStorage.getItem('token');
               const res = await api.post('/select-bar', { barId: bar.id }, { headers: { Authorization: `Bearer ${token}` } });
               if (res.status === 200) {
+                Alert.alert('Successfully Linked!')
                 setIsBarOwner(true);
               }
             } catch (err) {
-              Alert.alert('Failed to link bar', err.message, err.response?.data);
+              Alert.alert('Failed to link bar');
             }
           }}
         >
