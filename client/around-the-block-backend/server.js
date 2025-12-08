@@ -71,8 +71,19 @@ const postSchema = new mongoose.Schema({
   createdAt: { type: Date, default: Date.now }
 });
 
+// Comment Schema (important: stores comments separately from posts)
+const commentSchema = new mongoose.Schema({
+  postId: { type: mongoose.Schema.Types.ObjectId, ref: "Post", required: true },
+  userId: { type: mongoose.Schema.Types.ObjectId, ref: "User", required: true },
+  username: { type: String, required: true },
+  profilePicUrl: { type: String, default: "" },
+  text: { type: String, required: true },
+  createdAt: { type: Date, default: Date.now }
+});
+
 const BarTime = mongoose.model("BarTime", barSchema);
 const Post = mongoose.model("Post", postSchema);
+const Comment = mongoose.model("Comment", commentSchema);
 const User = mongoose.model("User", userSchema);
 
 const verifyToken = (req, res, next) => {
@@ -466,8 +477,11 @@ app.post("/posts", verifyToken, async (req, res) => {
       return res.status(404).json({ message: "User not found" });
     }
 
+    // convert userId to ObjectId (important: ensures proper type for references)
+    const userIdObj = new mongoose.Types.ObjectId(req.userId);
+    
     const newPost = new Post({
-      userId: req.userId,
+      userId: userIdObj,
       username: user.username,
       content: contentStr,
       imageUrl: imageUrl || "",
@@ -484,26 +498,78 @@ app.post("/posts", verifyToken, async (req, res) => {
   }
 });
 
-// Get all posts (for feed)
+// Get all posts (for feed) (important: gets comment counts from comments collection)
 app.get("/posts", async (req, res) => {
   try {
+    // try to get user id from token (optional - works for logged in and logged out users)
+    let currentUserId = null;
+    try {
+      const token = req.headers.authorization?.split(' ')[1];
+      if (token) {
+        const decoded = jwt.verify(token, process.env.JWT_SECRET);
+        currentUserId = decoded.id.toString();
+      }
+    } catch (err) {
+      // no token or invalid token - that's fine, user just isn't logged in
+    }
+
     const posts = await Post.find({})
       .sort({ createdAt: -1 })
       .limit(50)
       .lean();
 
-    // Format posts for frontend
-    const formattedPosts = posts.map(post => ({
-      id: post._id.toString(),
-      userId: post.userId.toString(),
-      username: post.username,
-      text: post.content,
-      image: post.imageUrl || null,
-      profilePicUrl: post.profilePicUrl || "",
-      time: getTimeAgo(post.createdAt),
-      liked: false, // Will be set by frontend based on user
-      likeCount: post.likes || 0,
-      commentCount: 0 // Can be added later
+    // get comment counts for all posts (important: aggregates from comments collection)
+    const postIds = posts.map(p => p._id);
+    const commentCounts = await Comment.aggregate([
+      { $match: { postId: { $in: postIds } } },
+      { $group: { _id: "$postId", count: { $sum: 1 } } }
+    ]);
+    const commentCountMap = {};
+    commentCounts.forEach(item => {
+      commentCountMap[item._id.toString()] = item.count;
+    });
+
+    // Format posts for frontend (important: fetch profilePicUrl from User if post doesn't have it)
+    const formattedPosts = await Promise.all(posts.map(async post => {
+      // check if current user has liked this post (important: looks in likedBy array)
+      // with .lean(), ObjectIds are still ObjectId instances, so we need to convert them
+      let hasLiked = false;
+      if (currentUserId && post.likedBy && post.likedBy.length > 0) {
+        hasLiked = post.likedBy.some(id => {
+          // handle both ObjectId and string formats
+          const idStr = id.toString ? id.toString() : String(id);
+          return idStr === currentUserId;
+        });
+      }
+
+      // debug: only log posts with likes to reduce noise
+      if (post.likes > 0 || (post.likedBy && post.likedBy.length > 0)) {
+        console.log(`Post ${post._id.toString()} - likes: ${post.likes}, likedBy length: ${post.likedBy?.length || 0}, hasLiked: ${hasLiked}`);
+      }
+
+      // get profilePicUrl from post, or fetch from User if missing
+      let displayProfilePicUrl = post.profilePicUrl || "";
+      if (!displayProfilePicUrl) {
+        try {
+          const postUser = await User.findById(post.userId).select('profilePicUrl').lean();
+          displayProfilePicUrl = postUser?.profilePicUrl || "";
+        } catch (err) {
+          console.error("Error fetching user profilePicUrl:", err);
+        }
+      }
+
+      return {
+        id: post._id.toString(),
+        userId: post.userId.toString(),
+        username: post.username,
+        text: post.content,
+        image: post.imageUrl || null,
+        profilePicUrl: displayProfilePicUrl,
+        time: getTimeAgo(post.createdAt),
+        liked: hasLiked,
+        likeCount: post.likes || 0,
+        commentCount: commentCountMap[post._id.toString()] || 0
+      };
     }));
 
     res.json(formattedPosts);
@@ -513,26 +579,69 @@ app.get("/posts", async (req, res) => {
   }
 });
 
-// Get posts by a specific user
+// Get posts by a specific user (important: same logic as get all posts but filtered by userid)
 app.get("/posts/user/:userId", async (req, res) => {
   try {
     const { userId } = req.params;
+    
+    // try to get current user id from token (optional)
+    let currentUserId = null;
+    try {
+      const token = req.headers.authorization?.split(' ')[1];
+      if (token) {
+        const decoded = jwt.verify(token, process.env.JWT_SECRET);
+        currentUserId = decoded.id.toString();
+      }
+    } catch (err) {
+      // no token or invalid token - that's fine
+    }
+
     const posts = await Post.find({ userId })
       .sort({ createdAt: -1 })
       .limit(50)
       .lean();
 
-    const formattedPosts = posts.map(post => ({
-      id: post._id.toString(),
-      userId: post.userId.toString(),
-      username: post.username,
-      text: post.content,
-      image: post.imageUrl || null,
-      profilePicUrl: post.profilePicUrl || "",
-      time: getTimeAgo(post.createdAt),
-      liked: false,
-      likeCount: post.likes || 0,
-      commentCount: 0
+    // get comment counts
+    const postIds = posts.map(p => p._id);
+    const commentCounts = await Comment.aggregate([
+      { $match: { postId: { $in: postIds } } },
+      { $group: { _id: "$postId", count: { $sum: 1 } } }
+    ]);
+    const commentCountMap = {};
+    commentCounts.forEach(item => {
+      commentCountMap[item._id.toString()] = item.count;
+    });
+
+    // Format posts for frontend (important: fetch profilePicUrl from User if post doesn't have it)
+    const formattedPosts = await Promise.all(posts.map(async post => {
+      // check if current user has liked this post
+      const hasLiked = currentUserId && post.likedBy 
+        ? post.likedBy.some(id => id.toString() === currentUserId)
+        : false;
+
+      // get profilePicUrl from post, or fetch from User if missing
+      let displayProfilePicUrl = post.profilePicUrl || "";
+      if (!displayProfilePicUrl) {
+        try {
+          const postUser = await User.findById(post.userId).select('profilePicUrl').lean();
+          displayProfilePicUrl = postUser?.profilePicUrl || "";
+        } catch (err) {
+          console.error("Error fetching user profilePicUrl:", err);
+        }
+      }
+
+      return {
+        id: post._id.toString(),
+        userId: post.userId.toString(),
+        username: post.username,
+        text: post.content,
+        image: post.imageUrl || null,
+        profilePicUrl: displayProfilePicUrl,
+        time: getTimeAgo(post.createdAt),
+        liked: hasLiked,
+        likeCount: post.likes || 0,
+        commentCount: commentCountMap[post._id.toString()] || 0
+      };
     }));
 
     res.json(formattedPosts);
@@ -542,38 +651,71 @@ app.get("/posts/user/:userId", async (req, res) => {
   }
 });
 
-// Like/unlike a post
+// Like/unlike a post (important: simple approach like comments - find, modify, save)
 app.post("/posts/:postId/like", verifyToken, async (req, res) => {
+  console.log("LIKE ROUTE CALLED - postId:", req.params.postId, "userId:", req.userId);
   try {
     const { postId } = req.params;
+    
+    // validate postId
+    if (!mongoose.Types.ObjectId.isValid(postId)) {
+      console.log("Invalid postId");
+      return res.status(400).json({ message: "Invalid post ID" });
+    }
+    
+    // find the post
     const post = await Post.findById(postId);
-
     if (!post) {
+      console.log("Post not found");
       return res.status(404).json({ message: "Post not found" });
     }
-
+    
+    console.log("Post found - current likes:", post.likes, "likedBy length:", post.likedBy.length);
+    
+    // convert userId to ObjectId for comparison
+    const userIdObj = new mongoose.Types.ObjectId(req.userId);
     const userIdStr = req.userId.toString();
-    const likedIndex = post.likedBy.findIndex(id => id.toString() === userIdStr);
-
+    
+    // check if user already liked this post
+    const likedIndex = post.likedBy.findIndex(id => {
+      const idStr = id.toString ? id.toString() : String(id);
+      return idStr === userIdStr;
+    });
+    
+    console.log("Liked index:", likedIndex);
+    
     if (likedIndex === -1) {
-      // User hasn't liked, so like it
-      post.likedBy.push(req.userId);
+      // user hasn't liked, so add like
+      post.likedBy.push(userIdObj);
       post.likes += 1;
+      console.log("Adding like - new count:", post.likes);
     } else {
-      // User has liked, so unlike it
+      // user has liked, so remove like
       post.likedBy.splice(likedIndex, 1);
       post.likes = Math.max(0, post.likes - 1);
+      console.log("Removing like - new count:", post.likes);
     }
-
+    
+    // mark array as modified (important: ensures mongoose saves array changes)
+    post.markModified('likedBy');
+    
+    // save the post (same approach as comments)
     await post.save();
+    console.log("Post saved - final likes:", post.likes, "final likedBy length:", post.likedBy.length);
+    
+    // verify it was actually saved by fetching fresh from database
+    const verifyPost = await Post.findById(postId).lean();
+    console.log("Verification - likes in DB:", verifyPost.likes, "likedBy in DB:", verifyPost.likedBy.length, "likedBy array:", verifyPost.likedBy);
+    
     res.json({
       message: "Like updated",
-      likes: post.likes,
+      likes: verifyPost.likes,
       liked: likedIndex === -1
     });
   } catch (error) {
     console.error("Error updating like:", error);
-    res.status(500).json({ message: "Error updating like" });
+    console.error("Error details:", error.message, error.stack);
+    res.status(500).json({ message: "Error updating like", error: error.message });
   }
 });
 
@@ -596,6 +738,94 @@ app.delete("/posts/:postId", verifyToken, async (req, res) => {
   } catch (error) {
     console.error("Error deleting post:", error);
     res.status(500).json({ message: "Error deleting post" });
+  }
+});
+
+// ========== COMMENT ROUTES ==========
+
+// get comments for a post (important: validates objectid, sorts oldest first)
+app.get("/posts/:postId/comments", async (req, res) => {
+  try {
+    const { postId } = req.params;
+    
+    // validate objectid format
+    if (!mongoose.Types.ObjectId.isValid(postId)) {
+      return res.status(400).json({ message: "Invalid post ID" });
+    }
+    
+    // get comments for this post, oldest first
+    const comments = await Comment.find({ postId: new mongoose.Types.ObjectId(postId) })
+      .sort({ createdAt: 1 })
+      .lean();
+
+    const formattedComments = comments.map(comment => ({
+      id: comment._id.toString(),
+      userId: comment.userId.toString(),
+      username: comment.username,
+      profilePicUrl: comment.profilePicUrl || "",
+      text: comment.text,
+      time: getTimeAgo(comment.createdAt)
+    }));
+
+    res.json(formattedComments);
+  } catch (error) {
+    console.error("Error fetching comments:", error);
+    res.status(500).json({ message: "Error fetching comments" });
+  }
+});
+
+// create a comment on a post (important: saves profilepicurl from user at time of creation)
+app.post("/posts/:postId/comments", verifyToken, async (req, res) => {
+  try {
+    const { postId } = req.params;
+    const { text } = req.body;
+
+    if (!text || text.trim() === "") {
+      return res.status(400).json({ message: "Comment text is required" });
+    }
+
+    // validate objectid format
+    if (!mongoose.Types.ObjectId.isValid(postId)) {
+      return res.status(400).json({ message: "Invalid post ID" });
+    }
+
+    // verify post exists
+    const post = await Post.findById(postId);
+    if (!post) {
+      return res.status(404).json({ message: "Post not found" });
+    }
+
+    // get user info
+    const user = await User.findById(req.userId);
+    if (!user) {
+      return res.status(404).json({ message: "User not found" });
+    }
+
+    // create comment with user info (important: saves profilepicurl so it persists even if user changes it later)
+    const newComment = new Comment({
+      postId: new mongoose.Types.ObjectId(postId),
+      userId: new mongoose.Types.ObjectId(req.userId),
+      username: user.username,
+      profilePicUrl: user.profilePicUrl || "",
+      text: text.trim()
+    });
+
+    await newComment.save();
+
+    // format comment for response
+    const formattedComment = {
+      id: newComment._id.toString(),
+      userId: newComment.userId.toString(),
+      username: newComment.username,
+      profilePicUrl: newComment.profilePicUrl || "",
+      text: newComment.text,
+      time: getTimeAgo(newComment.createdAt)
+    };
+
+    res.status(201).json({ message: "Comment created successfully", comment: formattedComment });
+  } catch (error) {
+    console.error("Error creating comment:", error);
+    res.status(500).json({ message: "Error creating comment" });
   }
 });
 
@@ -640,6 +870,14 @@ app.post("/select-bar", verifyToken, async (req, res) => {
 
     await user.save()
 
+    // console.log("Assigning bar to user:", bar.barId, typeof bar.barId);
+
+    // user.bar = bar.barId
+
+    // await user.save()
+
+
+    // res.json({ message: "Bar linked", bar: user.bar })
 
     res.json({ message: "Bar linked", bar: user.bar })
 

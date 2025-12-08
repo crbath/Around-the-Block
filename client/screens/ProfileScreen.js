@@ -117,8 +117,9 @@ export default function ProfileScreen() {
     }
   };
 
+  // navigate to friends screen when user taps friends count
   const handleFriendPress = () => {
-    console.log("Should navigate to friends page");
+    navigation.navigate('Friends');
   };
 
   // --- LOADING STATES ---
@@ -187,7 +188,7 @@ export default function ProfileScreen() {
         <FlatList
           data={posts}
           keyExtractor={(item) => item.id}
-          renderItem={({ item }) => <PostCard post={{ ...item, navigation }} />}
+          renderItem={({ item }) => <PostCard post={item} navigation={navigation} />}
           scrollEnabled={false}
         />
       ) : (

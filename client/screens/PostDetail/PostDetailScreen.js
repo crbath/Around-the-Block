@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { View, Text, StyleSheet, ScrollView, Image, TouchableOpacity, TextInput, ActivityIndicator, KeyboardAvoidingView, Platform, Modal, Dimensions } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import api from '../../api/api';
+import { likePost } from '../../api/api';
 
 const MOCK_COMMENTS = {
   '1': [
@@ -19,7 +20,7 @@ const MOCK_COMMENTS = {
 };
 
 export default function PostDetailScreen({ route, navigation }) {
-  const { post } = route.params;
+  const { post, fromProfile } = route.params || {};
   const [comments, setComments] = useState([]);
   const [commentText, setCommentText] = useState('');
   const [loading, setLoading] = useState(true);
@@ -47,13 +48,33 @@ export default function PostDetailScreen({ route, navigation }) {
     setLoading(false);
   }
 
-  function handleLike() {
-    if (liked) {
-      setLiked(false);
-      setLikeCount(likeCount - 1);
-    } else {
-      setLiked(true);
-      setLikeCount(likeCount + 1);
+  // handle like button (important: calls API to save like, same as PostCard)
+  async function handleLike() {
+    // store previous state for potential revert
+    const previousLiked = liked;
+    const previousLikeCount = likeCount;
+    
+    try {
+      // optimistically update UI
+    const newLiked = !liked;
+    setLiked(newLiked);
+    setLikeCount(newLiked ? likeCount + 1 : Math.max(0, likeCount - 1));
+
+    // call API to save like
+    const response = await likePost(post.id);
+    
+    // update with server response (important: ensures UI matches server state)
+    if (response.data) {
+      const serverLikes = response.data.likes !== undefined ? response.data.likes : likeCount;
+      const serverLiked = response.data.liked !== undefined ? response.data.liked : newLiked;
+      setLikeCount(serverLikes);
+      setLiked(serverLiked);
+    }
+    } catch (error) {
+      // revert on error
+      setLiked(previousLiked);
+      setLikeCount(previousLikeCount);
+      console.error('Error liking post:', error);
     }
   }
 
@@ -82,7 +103,25 @@ export default function PostDetailScreen({ route, navigation }) {
   return (
     <KeyboardAvoidingView style={styles.container} behavior={Platform.OS === 'ios' ? 'padding' : 'height'} keyboardVerticalOffset={Platform.OS === 'ios' ? 90 : 0}>
       <View style={styles.header}>
-        <TouchableOpacity onPress={() => navigation.goBack()} style={styles.backButton}>
+        <TouchableOpacity 
+          onPress={() => {
+            // if we came from Profile tab, navigate back to Profile instead of using goBack()
+            if (fromProfile === true) {
+              // get the tab navigator (parent of FeedStack)
+              const tabNav = navigation.getParent();
+              if (tabNav && tabNav.navigate) {
+                tabNav.navigate('Profile');
+              } else {
+                // fallback to goBack if we can't get tab navigator
+                navigation.goBack();
+              }
+            } else {
+              // from feed or other screens - use normal goBack()
+              navigation.goBack();
+            }
+          }} 
+          style={styles.backButton}
+        >
           <Ionicons name="arrow-back" size={24} color="#FFFFFF" />
         </TouchableOpacity>
         <Text style={styles.headerTitle}>Post</Text>
@@ -92,9 +131,13 @@ export default function PostDetailScreen({ route, navigation }) {
       <ScrollView style={styles.scrollView} contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
         <View style={styles.postCard}>
           <View style={styles.postHeader}>
-            <View style={styles.avatar}>
-              <Text style={styles.avatarText}>{post.username ? post.username[0].toUpperCase() : '?'}</Text>
-            </View>
+            {post.profilePicUrl ? (
+              <Image source={{ uri: post.profilePicUrl }} style={styles.avatarImage} />
+            ) : (
+              <View style={styles.avatar}>
+                <Text style={styles.avatarText}>{post.username ? post.username[0].toUpperCase() : '?'}</Text>
+              </View>
+            )}
             <View>
               <Text style={styles.username}>{post.username}</Text>
               <Text style={styles.timestamp}>{post.time}</Text>
@@ -193,6 +236,7 @@ const styles = StyleSheet.create({
   scrollContent: { paddingBottom: 20 },
   postCard: { backgroundColor: '#1A1A2E', padding: 16, margin: 16, borderRadius: 10 },
   postHeader: { flexDirection: 'row', marginBottom: 12, alignItems: 'center' },
+  avatarImage: { width: 44, height: 44, borderRadius: 22, backgroundColor: '#7EA0FF', marginRight: 12 },
   avatar: { width: 44, height: 44, borderRadius: 22, backgroundColor: '#7EA0FF', marginRight: 12, alignItems: 'center', justifyContent: 'center' },
   avatarText: { color: '#FFFFFF', fontSize: 20, fontWeight: 'bold' },
   username: { color: '#FFFFFF', fontSize: 16, fontWeight: 'bold' },

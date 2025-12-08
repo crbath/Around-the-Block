@@ -12,12 +12,32 @@ const api = axios.create({
 api.interceptors.request.use(
   async (config) => {
     const token = await AsyncStorage.getItem('token');
+    console.log('API Request:', config.method?.toUpperCase(), config.url);
+    console.log('Full URL:', config.baseURL + config.url);
     if (token) {
       config.headers.Authorization = `Bearer ${token}`;
+      console.log('Token added to request');
+    } else {
+      console.log('No token found');
     }
     return config;
   },
   (error) => {
+    console.error('API Request Error:', error);
+    return Promise.reject(error);
+  }
+);
+
+// Add response interceptor for debugging
+api.interceptors.response.use(
+  (response) => {
+    console.log('API Response:', response.config.method?.toUpperCase(), response.config.url, response.status);
+    return response;
+  },
+  (error) => {
+    console.error('API Response Error:', error.config?.method?.toUpperCase(), error.config?.url);
+    console.error('Error status:', error.response?.status);
+    console.error('Error data:', error.response?.data);
     return Promise.reject(error);
   }
 );
@@ -45,6 +65,13 @@ export const likePost = (postId) =>
 
 export const deletePost = (postId) =>
   api.delete(`/posts/${postId}`);
+
+// ---- COMMENT API CALLS ---- //
+export const getComments = (postId) =>
+  api.get(`/posts/${postId}/comments`);
+
+export const createComment = (postId, text) =>
+  api.post(`/posts/${postId}/comments`, { text });
 
 // ---- USER API CALLS ---- //
 export const getProfile = () => api.get('/profile');

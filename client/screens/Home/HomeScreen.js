@@ -1,6 +1,7 @@
 import React from 'react';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
+import { CommonActions } from '@react-navigation/native';
 import { Ionicons } from '@expo/vector-icons';
 import ActivitiesScreen from '../Activities/ActivitiesScreen';
 import FeedScreen from '../Feed/FeedScreen';
@@ -92,6 +93,35 @@ export default function HomeScreen() {
             <Ionicons name="newspaper-outline" size={size} color={color} />
           ),
         }}
+        listeners={({ navigation }) => ({
+          tabPress: (e) => {
+            // get the current state
+            const state = navigation.getState();
+            const feedRoute = state.routes.find(r => r.name === 'Feed');
+            
+            // if Feed tab is already focused and we're not on FeedMain, reset to FeedMain
+            if (feedRoute && feedRoute.state) {
+              const feedStackState = feedRoute.state;
+              const currentScreen = feedStackState.routes[feedStackState.index]?.name;
+              
+              // if we're not on FeedMain, reset the FeedStack to FeedMain
+              if (currentScreen !== 'FeedMain') {
+                e.preventDefault();
+                // reset the FeedStack to just FeedMain
+                navigation.dispatch(
+                  CommonActions.reset({
+                    index: state.index,
+                    routes: state.routes.map(route => 
+                      route.name === 'Feed' 
+                        ? { ...route, state: { routes: [{ name: 'FeedMain' }], index: 0 } }
+                        : route
+                    ),
+                  })
+                );
+              }
+            }
+          },
+        })}
       />
       <Tab.Screen
         name="Maps"
