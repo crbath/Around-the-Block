@@ -12,8 +12,8 @@ export default function BarProfileScreen({ route, navigation }) {
   const [timeValue, setTimeValue] = useState(10);
   const [loading, setLoading] = useState(false);
   const [isBarOwner, setIsBarOwner] = useState(false);
-  const [deals, setDeals] = useState(bar.deals || '');
-  const [hours, setHours] = useState(bar.hours || '');
+  const [deals, setDeals] = useState(bar.deals || 'No Deals Have Been Added Yet');
+  const [hours, setHours] = useState(bar.hours || 'No Hours Have Been Entered Yet');
   const [editing, setEditing] = useState(false);
   const [location, setLocation] = useState(null)
 
@@ -63,8 +63,8 @@ export default function BarProfileScreen({ route, navigation }) {
     try {
       setLoading(true);
       const res = await api.get(`/bar/${bar.id}`);
-      setDeals(res.data.deals || '');
-      setHours(res.data.hours || '');
+      setDeals(res.data.deals || 'No Deals Have Been Entered Yet');
+      setHours(res.data.hours || 'No Hours Have Been Entered Yet');
     } catch (err) {
       console.log('Error fetching bar', err);
       setAvgTime(null);
@@ -182,7 +182,9 @@ export default function BarProfileScreen({ route, navigation }) {
         <TouchableOpacity onPress={() => navigation.goBack()}>
           <Ionicons name="arrow-back" size={28} color="#fff" />
         </TouchableOpacity>
-        <Text style={styles.title}>{bar.name}</Text>
+        <View style={{ flex: 1, marginHorizontal: 10 }}>
+          <Text style={styles.title} adjustsFontSizeToFit>{bar.name}</Text>
+        </View>
         <Ionicons name="heart-outline" size={28} color="#fff" />
       </View>
 
@@ -273,7 +275,7 @@ export default function BarProfileScreen({ route, navigation }) {
               <TouchableOpacity style={[styles.modalButton, styles.submitButton]} onPress={submitTime} disabled={loading}>
                 {loading ? <ActivityIndicator color="#fff" /> : <Text style={styles.modalButtonText}>Submit</Text>}
               </TouchableOpacity>
-              <TouchableOpacity style={[styles.modalButton, styles.cancelButton]} onPress={() => setModalVisible(false)} disabled={loading}>
+              <TouchableOpacity style={[styles.modalButton, styles.cancelButton]} onPress={() => setModalVisible(false)}>
                 <Text style={styles.modalButtonText}>Cancel</Text>
               </TouchableOpacity>
             </View>

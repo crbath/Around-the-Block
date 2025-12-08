@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useRef } from 'react';
 
 import { View, Text, StyleSheet, Alert, Modal, TouchableWithoutFeedback, TouchableOpacity, Image } from 'react-native';
 
@@ -16,7 +16,7 @@ import WaitTimeSlider from '../../components/feature/WaitTimeSlider';
 
 
 
-export default function MapsScreen() {
+export default function MapsScreen({ navigation }) {
 
   const [location, setLocation] = useState(null)
 
@@ -32,7 +32,7 @@ export default function MapsScreen() {
 
   const [loading, setLoading] = useState(false)
 
-
+  const mapRef = useRef(null)
 
   function getDistanceFromBar(lat1, long1, lat2, long2) {
 
@@ -56,7 +56,16 @@ export default function MapsScreen() {
 
   }
 
+  const toUserLoc = () => {
+    if (!location || !mapRef.current) return;
 
+    mapRef.current.animateToRegion({
+      latitude: location.latitude,
+      longitude: location.longitude,
+      latitudeDelta: 0.005,
+      longitudeDelta: 0.005,
+    }, 500)
+  }
 
   const isNearBar = () => {
 
@@ -100,13 +109,7 @@ export default function MapsScreen() {
 
     if (!selectedBar) return;
 
-
-
-    const distance = getDistanceFromBar(location.latitude, location.longitude, selectedBar.latitude, selectedBar.longitude)
-
-
-
-    if (distance > 100) {
+    if (!isNearBar()) {
 
       Alert.alert("You are too far from the bar!")
 
@@ -257,6 +260,12 @@ export default function MapsScreen() {
   }, [location])
 
 
+  useEffect(() => {
+    if (selectedBar) {
+      fetchAverageTime(selectedBar.id)
+    }
+  }, [selectedBar])
+
 
   useEffect(() => {
 
@@ -295,6 +304,7 @@ export default function MapsScreen() {
       {location && (
 
         <MapView
+          ref={mapRef}
 
           style={styles.map}
 
@@ -314,6 +324,17 @@ export default function MapsScreen() {
 
         >
 
+          <Marker coordinate={{ latitude: location.latitude, longitude: location.longitude }}
+            title={"Your Location"}
+            description={location.latitude + ", " + location.longitude}>
+            <View style={{ alignItems: "center", justifyContent: 'center' }}>
+              <Text style={{ backgroundColor: "rgba(255, 245, 245, 0.6)", color: "black", paddingHorizontal: 6, paddingVertical: 2, borderRadius: 5, fontSize: 12, marginBottom: 5 }}>Your Location</Text>
+
+              <Image source={require("../../assets/images/purple-pin.png")} style={{ width: 50, height: 50 }} resizeMode="contain" tintColor={"#a8c8ffff"} />
+            </View>
+
+          </Marker>
+
           {bars.map(bar => (
 
             <Marker
@@ -326,7 +347,18 @@ export default function MapsScreen() {
 
               tracksViewChanges={false}
 
-              onPress={() => { setSelectedBar(bar); setShowModal(true); fetchAverageTime(bar.id) }}
+              onPress={async () => {
+                setSelectedBar(bar);
+                setShowModal(true);
+                try {
+                  await api.post("/create-bar-if-needed", {
+                    barId: bar.id, barName: bar.name, latitude: bar.latitude, longitude: bar.longitude
+                  });
+                }
+                catch (err) {
+
+                }
+              }}
 
             >
 
@@ -342,7 +374,9 @@ export default function MapsScreen() {
 
           ))}
 
-          <Marker
+
+
+          {/* <Marker
 
             coordinate={{ latitude: location.latitude, longitude: location.longitude }}
 
@@ -354,11 +388,12 @@ export default function MapsScreen() {
 
             zIndex={999}
 
-          />
+          /> */}
 
         </MapView>
 
-      )}
+      )
+      }
 
 
 
@@ -388,9 +423,17 @@ export default function MapsScreen() {
 
             <View style={{ flex: 1, justifyContent: 'flex-start', alignItems: 'center' }}>
 
-              <Text style={styles.modalTitle}>{selectedBar?.name}</Text>
+              <TouchableOpacity onPress={() => {
+                setShowModal(false)
+                navigation.navigate("BarProfile", { bar: selectedBar })
+              }}>
+                <Text style={[styles.modalTitle, { fontWeight: 'bold' }]}>{selectedBar?.name}</Text>
 
-              <Text style={[{ fontSize: 20, marginBottom: 10, textAlign: 'center', color: 'purple', paddingTop: 20 }]}>Estimated Wait Time: {getWaitTimeLabel(avgTime ? avgTime : 0)}</Text>
+
+
+              </TouchableOpacity>
+
+              <Text style={[{ fontSize: 20, marginBottom: 10, textAlign: 'center', color: '#5B4DB7', paddingTop: 20 }]}>Estimated Wait Time: {getWaitTimeLabel(avgTime ? avgTime : 0)}</Text>
 
 
 
@@ -404,7 +447,7 @@ export default function MapsScreen() {
 
                 </View>
 
-                <TouchableOpacity style={{ padding: 10, backgroundColor: loading || !isNearBar() ? 'grey' : 'purple', margin: 10, borderRadius: 5 }} onPress={submitWaitTime} disabled={loading || !isNearBar}>
+                <TouchableOpacity style={{ padding: 10, backgroundColor: loading || !isNearBar() ? 'grey' : '#5B4DB7', margin: 10, borderRadius: 5 }} onPress={submitWaitTime} disabled={loading || !isNearBar()}>
 
                   <Text style={{ color: 'white' }}>Submit</Text>
 
@@ -416,15 +459,27 @@ export default function MapsScreen() {
 
 
 
-            <Text style={{ marginBottom: 10, color: 'purple' }} onPress={() => { setShowModal(false); setSelectedBar(null) }}>Close</Text>
+            <Text style={{ marginBottom: 10, color: '#5B4DB7' }} onPress={() => { setShowModal(false); setSelectedBar(null) }}>Close</Text>
 
           </View>
+
 
         </View>
 
       </Modal>
 
-    </View>
+      {
+        location && (
+          <TouchableOpacity style={styles.fab} onPress={toUserLoc}>
+            <Image
+              source={require("../../assets/images/purple-pin.png")}
+              style={{ width: 40, height: 40, tintColor: 'white', }}
+              resizeMode="contain" />
+          </TouchableOpacity>
+        )
+      }
+
+    </View >
 
   );
 
@@ -433,7 +488,7 @@ export default function MapsScreen() {
 
 
 const styles = StyleSheet.create({
-
+  fab: { position: 'absolute', bottom: 40, right: 20, backgroundColor: '#a8c8ffff', width: 60, height: 60, justifyContent: 'center', alignItems: 'center', borderRadius: 20, shadowColor: '#000', shadowOffset: { width: 0, height: 3 }, shadowOpacity: 0.3, elevation: 10 },
   container: { flex: 1 },
 
   titleContainer: { alignItems: 'center', paddingVertical: 20, backgroundColor: "#0B0D17" },
