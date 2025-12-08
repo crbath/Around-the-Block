@@ -78,7 +78,8 @@ export default function PostCard({ post, navigation }) {
   // handle when user clicks on the post card
   function handlePostPress() {
     if (navigation) {
-      navigation.navigate('PostDetail', { post });
+      // pass fromProfile: false since this PostCard is used in FeedStack
+      navigation.navigate('PostDetail', { post, fromProfile: false });
     }
   }
 

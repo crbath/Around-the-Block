@@ -42,9 +42,25 @@ export default function PostCard({ post, navigation }) {
     }
   }
 
+  // handle when user clicks on the post card (important: navigate to PostDetail, which is in FeedStack)
   function handlePostPress() {
-    if (navigation) {
-      navigation.navigate('PostDetail', { post });
+    if (!navigation) return;
+    
+    // check navigation state to see which navigator we're in
+    const state = navigation.getState();
+    const currentRoute = state?.routes?.[state?.index];
+    const routeName = currentRoute?.name;
+    
+    // if we're in FeedStack (FeedMain, Friends, PostDetail, FriendProfile, CreatePost), navigate directly
+    if (routeName === 'FeedMain' || routeName === 'Friends' || routeName === 'PostDetail' || routeName === 'FriendProfile' || routeName === 'CreatePost') {
+      navigation.navigate('PostDetail', { post, fromProfile: false });
+    } else {
+      // we're in Profile tab or another tab, need to navigate to Feed tab first
+      // pass fromProfile: true so PostDetail knows to go back to Profile
+      navigation.navigate('Feed', { 
+        screen: 'PostDetail', 
+        params: { post, fromProfile: true } 
+      });
     }
   }
 

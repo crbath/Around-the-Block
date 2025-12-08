@@ -1,17 +1,28 @@
 import React, { useState, useEffect } from 'react';
-import { View, Text, StyleSheet, Image, TouchableOpacity, ActivityIndicator, ScrollView, Alert } from 'react-native';
+import { View, Text, StyleSheet, Image, TouchableOpacity, ActivityIndicator, ScrollView, Alert, FlatList } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import * as ImagePicker from 'expo-image-picker'
-import { useNavigation } from '@react-navigation/native'
-import { getProfile, updateProfile } from '../../api/api'
+import { useNavigation, useFocusEffect } from '@react-navigation/native'
+import { getProfile, updateProfile, getUserPosts } from '../../api/api'
 import { uploadProfilePicture } from '../../utils/firebase'
+import PostCard from '../../components/feature/PostCard'
 
 export default function ProfileScreen() {
   const [profile, setProfile] = useState(null)
+  const [posts, setPosts] = useState([])
   const [loading, setLoading] = useState(true)
   const navigation = useNavigation();
 
   useEffect(() => { fetchProfile() }, [])
+
+  // reload profile and posts when screen comes into focus (important: shows new posts after creating them)
+  useFocusEffect(
+    React.useCallback(() => {
+      if (profile) {
+        fetchUserPosts();
+      }
+    }, [profile])
+  )
 
   const fetchProfile = async () => {
     try {
@@ -24,6 +35,8 @@ export default function ProfileScreen() {
       // Store userId if we have it
       if (profileData._id) {
         await AsyncStorage.setItem('userId', profileData._id.toString())
+        // fetch posts after profile is loaded
+        await fetchUserPosts(profileData._id.toString())
       }
     } catch (err) {
       console.error('Error fetching profile:', err)
@@ -32,6 +45,20 @@ export default function ProfileScreen() {
       setProfile({ username: username || 'User', birthday: '', friends: [] })
     } finally {
       setLoading(false)
+    }
+  }
+
+  // fetch user's posts
+  const fetchUserPosts = async (userId = null) => {
+    try {
+      const userIdToUse = userId || await AsyncStorage.getItem('userId')
+      if (userIdToUse) {
+        const res = await getUserPosts(userIdToUse)
+        setPosts(res.data || [])
+      }
+    } catch (err) {
+      console.error('Error fetching user posts:', err)
+      setPosts([])
     }
   }
 
@@ -88,7 +115,7 @@ export default function ProfileScreen() {
   return (
     <View style={[styles.container, { paddingTop: 60 }]}>
       <Text style={[styles.text, { paddingBottom: 20, textAlign: 'center' }]}>Your Profile</Text>
-      <View style={styles.container}>
+      <ScrollView style={styles.scrollContainer} showsVerticalScrollIndicator={false}>
         <View style={styles.header}>
           <TouchableOpacity onPress={handleUpload}>
             {profile.profilePicUrl ? (
@@ -114,15 +141,28 @@ export default function ProfileScreen() {
             </View>
           </View>
         </View>
-        <Text style={[styles.text, { paddingTop: 20, textAlign: 'center' }]}>Memories here</Text>
-        <ScrollView contentContainerStyle={styles.container}></ScrollView>
-      </View>
+        <Text style={[styles.text, { paddingTop: 20, textAlign: 'center', marginBottom: 10 }]}>Your Posts</Text>
+        {posts.length > 0 ? (
+          <FlatList
+            data={posts}
+            keyExtractor={(item) => item.id}
+            renderItem={({ item }) => <PostCard post={item} navigation={navigation} />}
+            scrollEnabled={false}
+            nestedScrollEnabled={true}
+          />
+        ) : (
+          <View style={styles.emptyPosts}>
+            <Text style={styles.emptyPostsText}>No posts yet. Create your first post!</Text>
+          </View>
+        )}
+      </ScrollView>
     </View>
   );
 }
 
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: '#0B0D17', padding: 20 },
+  scrollContainer: { flex: 1 },
   header: { flexDirection: 'row', marginBottom: 20, alignItems: 'center' },
   profilePic: { width: 120, height: 120, borderRadius: 60, borderWidth: 2, borderColor: '#fff' },
   profilePlaceholder: { width: 120, height: 120, borderRadius: 60, borderWidth: 2, borderColor: '#fff', justifyContent: 'center', alignItems: 'center', backgroundColor: '#333' },
@@ -132,4 +172,6 @@ const styles = StyleSheet.create({
   friends: { color: '#4EA8DE', marginTop: 8, fontWeight: 'bold' },
   text: { color: '#fff', fontSize: 24, fontWeight: 'bold' },
   card: { backgroundColor: '#5B4DB7', width: '100%', borderRadius: 30, paddingVertical: 15, paddingHorizontal: 40, alignItems: 'flex-start', marginBottom: 15 },
+  emptyPosts: { alignItems: 'center', justifyContent: 'center', paddingVertical: 40 },
+  emptyPostsText: { color: '#9BA1A6', fontSize: 16 },
 });

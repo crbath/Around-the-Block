@@ -20,7 +20,7 @@ const MOCK_COMMENTS = {
 };
 
 export default function PostDetailScreen({ route, navigation }) {
-  const { post } = route.params;
+  const { post, fromProfile } = route.params || {};
   const [comments, setComments] = useState([]);
   const [commentText, setCommentText] = useState('');
   const [loading, setLoading] = useState(true);
@@ -103,7 +103,25 @@ export default function PostDetailScreen({ route, navigation }) {
   return (
     <KeyboardAvoidingView style={styles.container} behavior={Platform.OS === 'ios' ? 'padding' : 'height'} keyboardVerticalOffset={Platform.OS === 'ios' ? 90 : 0}>
       <View style={styles.header}>
-        <TouchableOpacity onPress={() => navigation.goBack()} style={styles.backButton}>
+        <TouchableOpacity 
+          onPress={() => {
+            // if we came from Profile tab, navigate back to Profile instead of using goBack()
+            if (fromProfile === true) {
+              // get the tab navigator (parent of FeedStack)
+              const tabNav = navigation.getParent();
+              if (tabNav && tabNav.navigate) {
+                tabNav.navigate('Profile');
+              } else {
+                // fallback to goBack if we can't get tab navigator
+                navigation.goBack();
+              }
+            } else {
+              // from feed or other screens - use normal goBack()
+              navigation.goBack();
+            }
+          }} 
+          style={styles.backButton}
+        >
           <Ionicons name="arrow-back" size={24} color="#FFFFFF" />
         </TouchableOpacity>
         <Text style={styles.headerTitle}>Post</Text>

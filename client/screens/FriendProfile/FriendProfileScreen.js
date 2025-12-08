@@ -1,7 +1,8 @@
 import React, { useState, useEffect } from 'react';
 import { View, Text, StyleSheet, ScrollView, TouchableOpacity, ActivityIndicator, FlatList } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
-import api from '../../api/api';
+import { useFocusEffect } from '@react-navigation/native';
+import api, { getUserPosts } from '../../api/api';
 import PostCard from '../../components/feature/PostCard';
 
 const MOCK_FRIEND_PROFILES = {
@@ -13,22 +14,46 @@ const MOCK_FRIEND_PROFILES = {
 export default function FriendProfileScreen({ route, navigation }) {
   const { friend } = route.params;
   const [profile, setProfile] = useState(null);
+  const [posts, setPosts] = useState([]);
   const [loading, setLoading] = useState(true);
   const [isFollowing, setIsFollowing] = useState(false);
 
   useEffect(() => { loadFriendProfile(); }, [friend.id]);
+
+  // reload posts when screen comes into focus (important: shows new posts friend created)
+  useFocusEffect(
+    React.useCallback(() => {
+      if (friend?.id) {
+        loadFriendPosts();
+      }
+    }, [friend?.id])
+  );
 
   async function loadFriendProfile() {
     try {
       const res = await api.get(`/users/${friend.id}/profile`);
       setProfile(res.data);
       setIsFollowing(res.data.isFollowing || false);
+      // load friend's posts
+      await loadFriendPosts();
     } catch (err) {
       const mockProfile = MOCK_FRIEND_PROFILES[friend.id] || { ...friend, bio: 'No bio available', postsCount: 0, friendsCount: 0, isFollowing: false, recentPosts: [] };
       setProfile(mockProfile);
       setIsFollowing(mockProfile.isFollowing || false);
+      setPosts(mockProfile.recentPosts || []);
     }
     setLoading(false);
+  }
+
+  // fetch friend's posts from API
+  async function loadFriendPosts() {
+    try {
+      const res = await getUserPosts(friend.id);
+      setPosts(res.data || []);
+    } catch (err) {
+      console.error('Error fetching friend posts:', err);
+      setPosts([]);
+    }
   }
 
   async function handleFollowToggle() {
@@ -106,8 +131,14 @@ export default function FriendProfileScreen({ route, navigation }) {
 
         <View style={styles.postsSection}>
           <Text style={styles.sectionTitle}>Posts</Text>
-          {profile.recentPosts && profile.recentPosts.length > 0 ? (
-            <FlatList data={profile.recentPosts} keyExtractor={(item) => item.id} scrollEnabled={false} renderItem={({ item }) => (<PostCard post={item} navigation={navigation} />)} />
+          {posts && posts.length > 0 ? (
+            <FlatList 
+              data={posts} 
+              keyExtractor={(item) => item.id} 
+              scrollEnabled={false}
+              nestedScrollEnabled={true}
+              renderItem={({ item }) => (<PostCard post={item} navigation={navigation} />)} 
+            />
           ) : (
             <View style={styles.emptyPosts}><Ionicons name="images-outline" size={48} color="#9BA1A6" /><Text style={styles.emptyPostsText}>No posts yet</Text></View>
           )}
