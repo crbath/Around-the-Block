@@ -102,6 +102,11 @@ ELDEN:
    - HeadsUp Activity
 
 COLIN: 
+   - Initial Setup of Repo on GitHub
+   - Initial Setup of MongoDB Atlas Cluster
+   - Authentication screens (Login, Signup)
+   - Logout functionality
+   - Universal IP address setup for backend API calls
    - Select Bars screen
    - Bar Profile screen 
    - Bar wait time & information implementation (and time update)

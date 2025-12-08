@@ -40,11 +40,24 @@ export default function ProfileScreen() {
       }
     } catch (err) {
       console.error('Error fetching profile:', err)
-      // Fallback to basic profile
       const username = await AsyncStorage.getItem('user')
       setProfile({ username: username || 'User', birthday: '', friends: [] })
     } finally {
       setLoading(false)
+    }
+  }
+
+  const handleLogout = async () => {
+    try {
+      await AsyncStorage.removeItem('token')
+      await AsyncStorage.removeItem('userId')
+
+      navigation.reset({
+        index: 0,
+        routes: [{ name: "Login" }],
+      })
+    } catch (err) {
+      console.log("Logout error:", err)
     }
   }
 
@@ -132,6 +145,7 @@ export default function ProfileScreen() {
               </View>
             )}
           </TouchableOpacity>
+
           <View style={styles.info}>
             <View style={styles.card}>
               <Text style={styles.username}>{profile.username}</Text>
@@ -144,6 +158,12 @@ export default function ProfileScreen() {
               <TouchableOpacity onPress={handleFriendPress}>
                 <Text style={styles.friends}>{profile.friends?.length || 0} Friends</Text>
               </TouchableOpacity>
+
+              {/* LOG OUT BUTTON */}
+              <TouchableOpacity onPress={handleLogout} style={styles.logoutButton}>
+                <Text style={styles.logoutText}>Log Out</Text>
+              </TouchableOpacity>
+
             </View>
           </View>
         </View>
@@ -180,4 +200,17 @@ const styles = StyleSheet.create({
   card: { backgroundColor: '#5B4DB7', width: '100%', borderRadius: 30, paddingVertical: 15, paddingHorizontal: 40, alignItems: 'flex-start', marginBottom: 15 },
   emptyPosts: { alignItems: 'center', justifyContent: 'center', paddingVertical: 40 },
   emptyPostsText: { color: '#9BA1A6', fontSize: 16 },
+
+  logoutButton: {
+    marginTop: 12,
+    backgroundColor: '#FF6B6B',
+    paddingVertical: 10,
+    paddingHorizontal: 20,
+    borderRadius: 10,
+  },
+  logoutText: {
+    color: 'white',
+    fontWeight: 'bold',
+    fontSize: 16,
+  },
 });
