@@ -86,3 +86,48 @@ PORT=5000
 12. Open another terminal and navigate to the client folder
 
 13. Run npx expo start to start the Expo development server
+
+
+
+RESPONSIBILITIES: 
+
+ELDEN: 
+   - Trivia screen
+   - Talking Ben Activity
+      - implemented microphone
+   - Bottom Bar Navigation
+   - Architecture of Application
+   - Restructured application to follow common structure
+   - Beer Activity
+   - HeadsUp Activity
+
+COLIN: 
+   - Select Bars screen
+   - Bar Profile screen 
+   - Bar wait time & information implementation (and time update)
+   - User input on bar wait times functionality on more screens
+
+KATIE:
+   - Created map screen
+   - Connected map API 
+   - Connected bar collection API
+   - Initial Profile Screen
+   - Backend connection to bars (Bar Schema)
+   - Saving user interaction with wait times
+      - newer wait times are weighted more than older ones
+      - location to bar is importnant
+      - no spamming wait times
+   - UI updates and fixes throughout the process
+   - Bar accounts
+      - Backend refinement 
+      - UI capabilities for Bar accounts
+      - Rules created for who can be a bar account and when
+
+TAYLOR: 
+   - Feed Page
+   - Posts F/B
+   - Friends Page
+   - Accounts F/B
+   - Profile Posts
+   - Image Store & Meta Int.
+   - Firebase Integration for Images
