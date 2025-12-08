@@ -11,7 +11,7 @@ const WORD_CATEGORIES = {
 };
 
 const GAME_DURATION = 60; // 60 seconds per round
-const TILT_THRESHOLD = 0.6; // Threshold for detecting tilt up/down
+const TILT_THRESHOLD = 0.8; // Threshold for detecting tilt up/down
 
 export default function HeadsUpGameScreen({ navigation }) {
   const [gameState, setGameState] = useState('menu'); // 'menu', 'playing', 'finished'
@@ -176,7 +176,7 @@ export default function HeadsUpGameScreen({ navigation }) {
         <Text style={styles.instructions}>
           Place phone on your forehead{'\n'}
           Tilt DOWN for correct ✓{'\n'}
-          Tilt UP to skip ↓{'\n'}
+          Tilt UP to skip ↑{'\n'}
           {GAME_DURATION} seconds to guess as many as you can!
         </Text>
         
@@ -219,8 +219,8 @@ export default function HeadsUpGameScreen({ navigation }) {
         </Animated.View>
 
         <View style={styles.instructionBar}>
-          <Text style={styles.instructionText}>↑ Tilt Down = Correct</Text>
-          <Text style={styles.instructionText}>↓ Tilt Up = Skip</Text>
+          <Text style={styles.instructionText}>↓ Tilt Down = Correct</Text>
+          <Text style={styles.instructionText}>↑ Tilt Up = Skip</Text>
         </View>
       </View>
     );
