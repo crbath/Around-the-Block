@@ -847,6 +847,14 @@ app.post("/select-bar", verifyToken, async (req, res) => {
 
     await user.save()
 
+    // console.log("Assigning bar to user:", bar.barId, typeof bar.barId);
+
+    // user.bar = bar.barId
+
+    // await user.save()
+
+
+    // res.json({ message: "Bar linked", bar: user.bar })
 
     res.json({ message: "Bar linked", bar: user.bar })
 

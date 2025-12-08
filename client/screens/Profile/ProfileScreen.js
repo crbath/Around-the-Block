@@ -19,7 +19,8 @@ export default function ProfileScreen() {
       const res = await getProfile()
       const profileData = res.data
       setProfile(profileData)
-      
+      console.log(profileData)
+
       // Store userId if we have it
       if (profileData._id) {
         await AsyncStorage.setItem('userId', profileData._id.toString())
@@ -28,9 +29,9 @@ export default function ProfileScreen() {
       console.error('Error fetching profile:', err)
       // Fallback to basic profile
       const username = await AsyncStorage.getItem('user')
-      setProfile({username: username || 'User', birthday: '', friends: []})
-    } finally { 
-      setLoading(false) 
+      setProfile({ username: username || 'User', birthday: '', friends: [] })
+    } finally {
+      setLoading(false)
     }
   }
 
@@ -40,7 +41,7 @@ export default function ProfileScreen() {
       Alert.alert('Permission needed', 'Please grant permission to access your photos')
       return
     }
-    
+
     try {
       const result = await ImagePicker.launchImageLibraryAsync({
         mediaTypes: ImagePicker.MediaTypeOptions.Images,
@@ -52,16 +53,16 @@ export default function ProfileScreen() {
       if (!result.canceled && result.assets[0]) {
         const userId = await AsyncStorage.getItem('userId') || profile?._id?.toString() || 'anonymous'
         const imageUrl = await uploadProfilePicture(result.assets[0].uri, userId)
-        
+
         // Update profile with new image URL in the backend
         try {
           await updateProfile({ profilePicUrl: imageUrl })
-          setProfile({...profile, profilePicUrl: imageUrl})
+          setProfile({ ...profile, profilePicUrl: imageUrl })
           Alert.alert('Success', 'Profile picture updated!')
         } catch (updateError) {
           console.error('Error updating profile in backend:', updateError)
           // Still update local state even if backend update fails
-          setProfile({...profile, profilePicUrl: imageUrl})
+          setProfile({ ...profile, profilePicUrl: imageUrl })
           Alert.alert('Warning', 'Picture uploaded but may not be saved to profile')
         }
       }
@@ -77,7 +78,7 @@ export default function ProfileScreen() {
   }
 
   if (loading) {
-    return (<View style={styles.container}><ActivityIndicator color="#fff" size="large" /></View>)
+    return (<View style={{ flex: 1, backgroundColor: '#B0D17', justifyContent: 'center', alignItems: 'center' }}><ActivityIndicator color="#fff" size="large" /></View>)
   }
 
   if (!profile) {
@@ -101,7 +102,12 @@ export default function ProfileScreen() {
           <View style={styles.info}>
             <View style={styles.card}>
               <Text style={styles.username}>{profile.username}</Text>
-              <Text style={styles.age}>Birthday: {profile.birthday}</Text>
+              {(profile.barAcc != null && profile.barAcc) ? (
+                <Text style={styles.age}>Bar Account</Text>
+              ) :
+                <Text style={styles.age}>Birthday: {profile.birthday}</Text>
+              }
+
               <TouchableOpacity onPress={handleFriendPress}>
                 <Text style={styles.friends}>{profile.friends?.length || 0} Friends</Text>
               </TouchableOpacity>

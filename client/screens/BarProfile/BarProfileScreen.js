@@ -12,9 +12,11 @@ export default function BarProfileScreen({ route, navigation }) {
   const [timeValue, setTimeValue] = useState(10);
   const [loading, setLoading] = useState(false);
   const [isBarOwner, setIsBarOwner] = useState(false);
-  const [deals, setDeals] = useState(bar.deals || '');
-  const [hours, setHours] = useState(bar.hours || '');
+  const [deals, setDeals] = useState(bar.deals || 'No Deals Have Been Added Yet');
+  const [hours, setHours] = useState(bar.hours || 'No Hours Have Been Entered Yet');
   const [editing, setEditing] = useState(false);
+  const [location, setLocation] = useState(null)
+
 
   useEffect(() => {
     if (!bar) return;
@@ -35,12 +37,34 @@ export default function BarProfileScreen({ route, navigation }) {
     checkBarOwner();
   }, [bar]);
 
+  useEffect(() => {
+
+    (async () => {
+
+      let { status } = await Location.requestForegroundPermissionsAsync()
+
+      if (status !== 'granted') {
+
+        setErrorMessage("Permission to access location was denied. You must allow access to use the app.")
+
+        Alert.alert("Permission denied, you must allow location services to use the app")
+
+      }
+
+      let loc = await Location.getCurrentPositionAsync({})
+
+      setLocation(loc.coords)
+
+    })()
+
+  }, [])
+
   const fetchBarInfo = async () => {
     try {
       setLoading(true);
       const res = await api.get(`/bar/${bar.id}`);
-      setDeals(res.data.deals || '');
-      setHours(res.data.hours || '');
+      setDeals(res.data.deals || 'No Deals Have Been Entered Yet');
+      setHours(res.data.hours || 'No Hours Have Been Entered Yet');
     } catch (err) {
       console.log('Error fetching bar', err);
       setAvgTime(null);
@@ -62,7 +86,46 @@ export default function BarProfileScreen({ route, navigation }) {
     }
   };
 
+  function getDistanceFromBar(lat1, long1, lat2, long2) {
+
+    const R = 6371000
+
+    const o1 = lat1 * Math.PI / 180
+
+    const o2 = lat2 * Math.PI / 180
+
+    const dO1 = (lat2 - lat1) * Math.PI / 180
+
+    const dLam = (long2 - long1) * Math.PI / 180
+
+    const a = Math.sin(dO1 / 2) * Math.sin(dO1 / 2) + Math.cos(o1) * Math.cos(o2) * Math.sin(dLam / 2) * Math.sin(dLam / 2)
+
+    const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a))
+
+    const d = R * c
+
+    return d
+
+  }
+
+
+
+  const isNearBar = () => {
+
+    if (!bar || !location) return false;
+
+    return getDistanceFromBar(location.latitude, location.longitude, bar.latitude, bar.longitude) <= 100
+
+  };
+
+
   const submitTime = async () => {
+    console.log(isNearBar())
+    if (!isNearBar()) {
+      Alert.alert("You are too far from the bar!")
+      return
+    }
+
     try {
       setLoading(true);
       const token = await AsyncStorage.getItem('token');
@@ -83,8 +146,10 @@ export default function BarProfileScreen({ route, navigation }) {
       setModalVisible(false);
       await fetchBarData();
     } catch (err) {
-      console.log('Error submitting time:', err);
-      Alert.alert('Error', err.response?.data?.message || 'Failed to submit wait time');
+      if (err.status === 403) {
+        Alert.alert("You are too far to submit a wait time!")
+      }
+      Alert.alert('Failed to submit wait time');
     } finally {
       setLoading(false);
     }
@@ -107,7 +172,7 @@ export default function BarProfileScreen({ route, navigation }) {
       setEditing(false);
       await fetchBarInfo();
     } catch (err) {
-      Alert.alert('Error: could not set bar information.', err.message);
+      Alert.alert('Error: could not set bar information.');
     }
   };
 
@@ -117,7 +182,9 @@ export default function BarProfileScreen({ route, navigation }) {
         <TouchableOpacity onPress={() => navigation.goBack()}>
           <Ionicons name="arrow-back" size={28} color="#fff" />
         </TouchableOpacity>
-        <Text style={styles.title}>{bar.name}</Text>
+        <View style={{ flex: 1, marginHorizontal: 10 }}>
+          <Text style={styles.title} adjustsFontSizeToFit>{bar.name}</Text>
+        </View>
         <Ionicons name="heart-outline" size={28} color="#fff" />
       </View>
 
@@ -208,7 +275,7 @@ export default function BarProfileScreen({ route, navigation }) {
               <TouchableOpacity style={[styles.modalButton, styles.submitButton]} onPress={submitTime} disabled={loading}>
                 {loading ? <ActivityIndicator color="#fff" /> : <Text style={styles.modalButtonText}>Submit</Text>}
               </TouchableOpacity>
-              <TouchableOpacity style={[styles.modalButton, styles.cancelButton]} onPress={() => setModalVisible(false)} disabled={loading}>
+              <TouchableOpacity style={[styles.modalButton, styles.cancelButton]} onPress={() => setModalVisible(false)}>
                 <Text style={styles.modalButtonText}>Cancel</Text>
               </TouchableOpacity>
             </View>
@@ -224,10 +291,11 @@ export default function BarProfileScreen({ route, navigation }) {
               const token = await AsyncStorage.getItem('token');
               const res = await api.post('/select-bar', { barId: bar.id }, { headers: { Authorization: `Bearer ${token}` } });
               if (res.status === 200) {
+                Alert.alert('Successfully Linked!')
                 setIsBarOwner(true);
               }
             } catch (err) {
-              Alert.alert('Failed to link bar', err.message, err.response?.data);
+              Alert.alert('Failed to link bar');
             }
           }}
         >
@@ -257,8 +325,26 @@ const styles = StyleSheet.create({
   modalSubtitle: { color: '#9BA1A6', fontSize: 14, marginBottom: 20 },
   modalButtons: { flexDirection: 'row', justifyContent: 'space-between', width: '100%', marginTop: 20 },
   modalButton: { flex: 1, paddingVertical: 12, borderRadius: 10, alignItems: 'center', marginHorizontal: 6 },
-  submitButton: { backgroundColor: '#7EA0FF' },
-  cancelButton: { backgroundColor: '#2C2C2E' },
+  submitButton: {
+    backgroundColor: '#7EA0FF',
+    borderRadius: 14,
+    padding: 10,
+    shadowColor: '#000',
+    shadowOpacity: 0.3,
+    shadowOffset: { width: 0, height: 3 },
+    elevation: 6,
+    borderWidth: 1,
+  },
+  cancelButton: {
+    backgroundColor: '#555',
+    borderRadius: 14,
+    padding: 10,
+    shadowColor: '#000',
+    shadowOpacity: 0.3,
+    shadowOffset: { width: 0, height: 3 },
+    elevation: 6,
+    borderWidth: 1,
+  },
   modalButtonText: { color: '#fff', fontSize: 16, fontWeight: '600' },
   floatingButton: { position: 'absolute', bottom: 30, right: 20, width: 50, height: 50, borderRadius: 25, backgroundColor: '#7EA0FF', alignItems: 'center', justifyContent: 'center', shadowColor: '#000', shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.3, shadowRadius: 8, elevation: 8 },
 });
