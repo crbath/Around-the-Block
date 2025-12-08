@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from 'react';
-import { View, Text, StyleSheet, FlatList, ActivityIndicator, TouchableOpacity } from 'react-native';
+import { View, Text, StyleSheet, FlatList, ActivityIndicator, TouchableOpacity, RefreshControl } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
+import { useFocusEffect } from '@react-navigation/native';
 import api from '../../api/api';
 import PostCard from '../../components/feature/PostCard';
 
@@ -40,10 +41,19 @@ const MOCK_POSTS = [
 export default function FeedScreen({ navigation }) {
   const [posts, setPosts] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
 
+  // load posts when screen first loads
   useEffect(() => {
     loadPosts();
   }, []);
+
+  // reload posts when screen comes into focus (important: updates likes/comments after navigating back from other screens)
+  useFocusEffect(
+    React.useCallback(() => {
+      loadPosts();
+    }, [])
+  );
 
   async function loadPosts() {
     try {
@@ -53,6 +63,13 @@ export default function FeedScreen({ navigation }) {
       setPosts(MOCK_POSTS);
     }
     setLoading(false);
+  }
+
+  // function called when user pulls down to refresh
+  async function handleRefresh() {
+    setRefreshing(true);
+    await loadPosts();
+    setRefreshing(false);
   }
 
   if (loading) {
@@ -75,7 +92,10 @@ export default function FeedScreen({ navigation }) {
       <FlatList
         data={posts}
         keyExtractor={(item) => item.id}
-        renderItem={({ item }) => <PostCard post={{ ...item, navigation }} />}
+        renderItem={({ item }) => <PostCard post={item} navigation={navigation} />}
+        refreshControl={
+          <RefreshControl refreshing={refreshing} onRefresh={handleRefresh} tintColor="#7EA0FF" />
+        }
       />
 
       <TouchableOpacity style={styles.fab} onPress={() => navigation.navigate('CreatePost')} activeOpacity={0.8}>

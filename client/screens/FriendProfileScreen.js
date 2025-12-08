@@ -262,7 +262,7 @@ export default function FriendProfileScreen({ route, navigation }) {
               keyExtractor={(item) => item.id}
               scrollEnabled={false}
               renderItem={({ item }) => (
-                <PostCard post={{ ...item, navigation }} />
+                <PostCard post={item} navigation={navigation} />
               )}
             />
           ) : (

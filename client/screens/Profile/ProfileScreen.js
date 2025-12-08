@@ -71,8 +71,9 @@ export default function ProfileScreen() {
     }
   }
 
+  // navigate to friends screen when tapping friends count (important: Friends is in FeedStack, so navigate to Feed tab first)
   const handleFriendPress = () => {
-    console.log('should nav to friends page')
+    navigation.navigate('Feed', { screen: 'Friends' });
   }
 
   if (loading) {

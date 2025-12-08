@@ -107,7 +107,7 @@ export default function FriendProfileScreen({ route, navigation }) {
         <View style={styles.postsSection}>
           <Text style={styles.sectionTitle}>Posts</Text>
           {profile.recentPosts && profile.recentPosts.length > 0 ? (
-            <FlatList data={profile.recentPosts} keyExtractor={(item) => item.id} scrollEnabled={false} renderItem={({ item }) => (<PostCard post={{ ...item, navigation }} />)} />
+            <FlatList data={profile.recentPosts} keyExtractor={(item) => item.id} scrollEnabled={false} renderItem={({ item }) => (<PostCard post={item} navigation={navigation} />)} />
           ) : (
             <View style={styles.emptyPosts}><Ionicons name="images-outline" size={48} color="#9BA1A6" /><Text style={styles.emptyPostsText}>No posts yet</Text></View>
           )}

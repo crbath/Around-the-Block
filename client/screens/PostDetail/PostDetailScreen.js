@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { View, Text, StyleSheet, ScrollView, Image, TouchableOpacity, TextInput, ActivityIndicator, KeyboardAvoidingView, Platform, Modal, Dimensions } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import api from '../../api/api';
+import { likePost } from '../../api/api';
 
 const MOCK_COMMENTS = {
   '1': [
@@ -47,13 +48,33 @@ export default function PostDetailScreen({ route, navigation }) {
     setLoading(false);
   }
 
-  function handleLike() {
-    if (liked) {
-      setLiked(false);
-      setLikeCount(likeCount - 1);
-    } else {
-      setLiked(true);
-      setLikeCount(likeCount + 1);
+  // handle like button (important: calls API to save like, same as PostCard)
+  async function handleLike() {
+    // store previous state for potential revert
+    const previousLiked = liked;
+    const previousLikeCount = likeCount;
+    
+    try {
+      // optimistically update UI
+    const newLiked = !liked;
+    setLiked(newLiked);
+    setLikeCount(newLiked ? likeCount + 1 : Math.max(0, likeCount - 1));
+
+    // call API to save like
+    const response = await likePost(post.id);
+    
+    // update with server response (important: ensures UI matches server state)
+    if (response.data) {
+      const serverLikes = response.data.likes !== undefined ? response.data.likes : likeCount;
+      const serverLiked = response.data.liked !== undefined ? response.data.liked : newLiked;
+      setLikeCount(serverLikes);
+      setLiked(serverLiked);
+    }
+    } catch (error) {
+      // revert on error
+      setLiked(previousLiked);
+      setLikeCount(previousLikeCount);
+      console.error('Error liking post:', error);
     }
   }
 

@@ -52,11 +52,18 @@ export default function FeedScreen({ navigation }) {
   const [loading, setLoading] = useState(true); // wgether we're loading data
   const [refreshing, setRefreshing] = useState(false); // whether or not a user is pulling to refresh
 
-  // useEffect runs when component first loads
+  // load posts when screen first loads
   useEffect(() => {
-    // load posts when screen loads
     loadPosts();
   }, []);
+
+  // reload posts when screen comes into focus (important: updates likes/comments after navigating back from other screens)
+  useEffect(() => {
+    const unsubscribe = navigation.addListener('focus', () => {
+      loadPosts();
+    });
+    return unsubscribe;
+  }, [navigation]);
 
   // fetch posts from backend or use mock data
   async function loadPosts() {
@@ -119,7 +126,7 @@ export default function FeedScreen({ navigation }) {
         renderItem={({ item }) => {
           // render each post using PostCard component
           // Pass navigation prop so PostCard can navigate to detail screen
-          return <PostCard post={{ ...item, navigation }} />;
+          return <PostCard post={item} navigation={navigation} />;
         }}
         refreshControl={
           <RefreshControl refreshing={refreshing} onRefresh={handleRefresh} tintColor="#7EA0FF" />
