@@ -131,9 +131,13 @@ export default function PostDetailScreen({ route, navigation }) {
       <ScrollView style={styles.scrollView} contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
         <View style={styles.postCard}>
           <View style={styles.postHeader}>
-            <View style={styles.avatar}>
-              <Text style={styles.avatarText}>{post.username ? post.username[0].toUpperCase() : '?'}</Text>
-            </View>
+            {post.profilePicUrl ? (
+              <Image source={{ uri: post.profilePicUrl }} style={styles.avatarImage} />
+            ) : (
+              <View style={styles.avatar}>
+                <Text style={styles.avatarText}>{post.username ? post.username[0].toUpperCase() : '?'}</Text>
+              </View>
+            )}
             <View>
               <Text style={styles.username}>{post.username}</Text>
               <Text style={styles.timestamp}>{post.time}</Text>
@@ -232,6 +236,7 @@ const styles = StyleSheet.create({
   scrollContent: { paddingBottom: 20 },
   postCard: { backgroundColor: '#1A1A2E', padding: 16, margin: 16, borderRadius: 10 },
   postHeader: { flexDirection: 'row', marginBottom: 12, alignItems: 'center' },
+  avatarImage: { width: 44, height: 44, borderRadius: 22, backgroundColor: '#7EA0FF', marginRight: 12 },
   avatar: { width: 44, height: 44, borderRadius: 22, backgroundColor: '#7EA0FF', marginRight: 12, alignItems: 'center', justifyContent: 'center' },
   avatarText: { color: '#FFFFFF', fontSize: 20, fontWeight: 'bold' },
   username: { color: '#FFFFFF', fontSize: 16, fontWeight: 'bold' },

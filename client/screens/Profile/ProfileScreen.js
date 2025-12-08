@@ -54,7 +54,13 @@ export default function ProfileScreen() {
       const userIdToUse = userId || await AsyncStorage.getItem('userId')
       if (userIdToUse) {
         const res = await getUserPosts(userIdToUse)
-        setPosts(res.data || [])
+        const data = Array.isArray(res.data) ? res.data : []
+        // ensure each post has a profilePicUrl (fallback to current profile pic)
+        const withPics = data.map(p => ({
+          ...p,
+          profilePicUrl: p.profilePicUrl || profile?.profilePicUrl || ''
+        }))
+        setPosts(withPics)
       }
     } catch (err) {
       console.error('Error fetching user posts:', err)

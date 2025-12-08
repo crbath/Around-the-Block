@@ -529,8 +529,8 @@ app.get("/posts", async (req, res) => {
       commentCountMap[item._id.toString()] = item.count;
     });
 
-    // Format posts for frontend
-    const formattedPosts = posts.map(post => {
+    // Format posts for frontend (important: fetch profilePicUrl from User if post doesn't have it)
+    const formattedPosts = await Promise.all(posts.map(async post => {
       // check if current user has liked this post (important: looks in likedBy array)
       // with .lean(), ObjectIds are still ObjectId instances, so we need to convert them
       let hasLiked = false;
@@ -547,19 +547,30 @@ app.get("/posts", async (req, res) => {
         console.log(`Post ${post._id.toString()} - likes: ${post.likes}, likedBy length: ${post.likedBy?.length || 0}, hasLiked: ${hasLiked}`);
       }
 
+      // get profilePicUrl from post, or fetch from User if missing
+      let displayProfilePicUrl = post.profilePicUrl || "";
+      if (!displayProfilePicUrl) {
+        try {
+          const postUser = await User.findById(post.userId).select('profilePicUrl').lean();
+          displayProfilePicUrl = postUser?.profilePicUrl || "";
+        } catch (err) {
+          console.error("Error fetching user profilePicUrl:", err);
+        }
+      }
+
       return {
         id: post._id.toString(),
         userId: post.userId.toString(),
         username: post.username,
         text: post.content,
         image: post.imageUrl || null,
-        profilePicUrl: post.profilePicUrl || "",
+        profilePicUrl: displayProfilePicUrl,
         time: getTimeAgo(post.createdAt),
         liked: hasLiked,
         likeCount: post.likes || 0,
         commentCount: commentCountMap[post._id.toString()] || 0
       };
-    });
+    }));
 
     res.json(formattedPosts);
   } catch (error) {
@@ -601,11 +612,23 @@ app.get("/posts/user/:userId", async (req, res) => {
       commentCountMap[item._id.toString()] = item.count;
     });
 
-    const formattedPosts = posts.map(post => {
+    // Format posts for frontend (important: fetch profilePicUrl from User if post doesn't have it)
+    const formattedPosts = await Promise.all(posts.map(async post => {
       // check if current user has liked this post
       const hasLiked = currentUserId && post.likedBy 
         ? post.likedBy.some(id => id.toString() === currentUserId)
         : false;
+
+      // get profilePicUrl from post, or fetch from User if missing
+      let displayProfilePicUrl = post.profilePicUrl || "";
+      if (!displayProfilePicUrl) {
+        try {
+          const postUser = await User.findById(post.userId).select('profilePicUrl').lean();
+          displayProfilePicUrl = postUser?.profilePicUrl || "";
+        } catch (err) {
+          console.error("Error fetching user profilePicUrl:", err);
+        }
+      }
 
       return {
         id: post._id.toString(),
@@ -613,13 +636,13 @@ app.get("/posts/user/:userId", async (req, res) => {
         username: post.username,
         text: post.content,
         image: post.imageUrl || null,
-        profilePicUrl: post.profilePicUrl || "",
+        profilePicUrl: displayProfilePicUrl,
         time: getTimeAgo(post.createdAt),
         liked: hasLiked,
         likeCount: post.likes || 0,
         commentCount: commentCountMap[post._id.toString()] || 0
       };
-    });
+    }));
 
     res.json(formattedPosts);
   } catch (error) {

@@ -49,7 +49,13 @@ export default function FriendProfileScreen({ route, navigation }) {
   async function loadFriendPosts() {
     try {
       const res = await getUserPosts(friend.id);
-      setPosts(res.data || []);
+      const data = Array.isArray(res.data) ? res.data : [];
+      // ensure profilePicUrl is present; fallback to friend's profile pic if missing
+      const withPics = data.map(p => ({
+        ...p,
+        profilePicUrl: p.profilePicUrl || profile?.profilePicUrl || ''
+      }));
+      setPosts(withPics);
     } catch (err) {
       console.error('Error fetching friend posts:', err);
       setPosts([]);

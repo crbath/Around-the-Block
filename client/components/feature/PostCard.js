@@ -69,9 +69,14 @@ export default function PostCard({ post, navigation }) {
       {/* clickable header/content area */}
       <TouchableOpacity onPress={handlePostPress} activeOpacity={0.8}>
         <View style={styles.header}>
-          <View style={styles.avatar}>
-            <Text style={styles.avatarText}>{post.username ? post.username[0].toUpperCase() : '?'}</Text>
-          </View>
+          {/* profile circle with first letter of username or profile pic */}
+          {post.profilePicUrl ? (
+            <Image source={{ uri: post.profilePicUrl }} style={styles.avatarImage} />
+          ) : (
+            <View style={styles.avatar}>
+              <Text style={styles.avatarText}>{post.username ? post.username[0].toUpperCase() : '?'}</Text>
+            </View>
+          )}
           <View>
             <Text style={styles.username}>{post.username}</Text>
             <Text style={styles.timestamp}>{post.time}</Text>
@@ -114,6 +119,7 @@ const styles = StyleSheet.create({
   card: { backgroundColor: '#1A1A2E', padding: 16, margin: 12, borderRadius: 10 },
   header: { flexDirection: 'row', marginBottom: 12, alignItems: 'center' },
   avatar: { width: 40, height: 40, borderRadius: 20, backgroundColor: '#7EA0FF', marginRight: 12, alignItems: 'center', justifyContent: 'center' },
+  avatarImage: { width: 40, height: 40, borderRadius: 20, marginRight: 12 },
   avatarText: { color: '#FFFFFF', fontSize: 18, fontWeight: 'bold' },
   username: { color: '#FFFFFF', fontSize: 16, fontWeight: 'bold' },
   timestamp: { color: '#9BA1A6', fontSize: 12 },
