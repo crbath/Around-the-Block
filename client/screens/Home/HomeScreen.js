@@ -55,6 +55,15 @@ function SelectBarsStackNavigator() {
   );
 }
 
+function MapStackNavigator() {
+  return (
+    <SelectBarsStack.Navigator screenOptions={{ headerShown: false }}>
+      <SelectBarsStack.Screen name="MapsMain" component={MapsScreen} />
+      <SelectBarsStack.Screen name="BarProfile" component={BarProfileScreen} />
+    </SelectBarsStack.Navigator>
+  );
+}
+
 export default function HomeScreen() {
   return (
     <Tab.Navigator
@@ -66,8 +75,8 @@ export default function HomeScreen() {
         tabBarInactiveTintColor: '#fff',
       }}
     >
-      <Tab.Screen 
-        name="Activities" 
+      <Tab.Screen
+        name="Activities"
         component={ActivitiesStackNavigator}
         options={{
           tabBarIcon: ({ color, size }) => (
@@ -75,8 +84,8 @@ export default function HomeScreen() {
           ),
         }}
       />
-      <Tab.Screen 
-        name="Feed" 
+      <Tab.Screen
+        name="Feed"
         component={FeedStackNavigator}
         options={{
           tabBarIcon: ({ color, size }) => (
@@ -84,17 +93,17 @@ export default function HomeScreen() {
           ),
         }}
       />
-      <Tab.Screen 
-        name="Maps" 
-        component={MapsScreen}
+      <Tab.Screen
+        name="Maps"
+        component={MapStackNavigator}
         options={{
           tabBarIcon: ({ color, size }) => (
             <Ionicons name="map-outline" size={size} color={color} />
           ),
         }}
       />
-      <Tab.Screen 
-        name="Select Bars" 
+      <Tab.Screen
+        name="Select Bars"
         component={SelectBarsStackNavigator}
         options={{
           tabBarIcon: ({ color, size }) => (
@@ -102,8 +111,8 @@ export default function HomeScreen() {
           ),
         }}
       />
-      <Tab.Screen 
-        name="Profile" 
+      <Tab.Screen
+        name="Profile"
         component={ProfileScreen}
         options={{
           tabBarIcon: ({ color, size }) => (
