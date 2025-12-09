@@ -135,4 +135,7 @@ TAYLOR:
    - Accounts F/B
    - Profile Posts
    - Image Store & Meta Int.
+      - Social Media login framework
+   - Bar Checkin Feature (Map and Profile)
+   - Liking and Commenting
    - Firebase Integration for Images
