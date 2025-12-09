@@ -29,7 +29,8 @@ const userSchema = new mongoose.Schema({
   barAcc: { type: Boolean },
   bar: { type: String },
   profilePicUrl: { type: String, default: "" },
-  friends: [{ type: mongoose.Schema.Types.ObjectId, ref: "User" }]
+  friends: [{ type: mongoose.Schema.Types.ObjectId, ref: "User" }],
+  currentCheckIn: { type: mongoose.Schema.Types.ObjectId, ref: "CheckIn", default: null }
 });
 
 //bar schema for inputting wait times
@@ -81,9 +82,24 @@ const commentSchema = new mongoose.Schema({
   createdAt: { type: Date, default: Date.now }
 });
 
+// CheckIn Schema - tracks when users check into locations
+const checkInSchema = new mongoose.Schema({
+  userId: { type: mongoose.Schema.Types.ObjectId, ref: "User", required: true },
+  username: { type: String, required: true },
+  profilePicUrl: { type: String, default: "" },
+  barId: { type: String, required: true },
+  barName: { type: String, required: true },
+  latitude: { type: Number, required: true },
+  longitude: { type: Number, required: true },
+  checkedInAt: { type: Date, default: Date.now },
+  checkedOutAt: { type: Date, default: null },
+  isActive: { type: Boolean, default: true }
+});
+
 const BarTime = mongoose.model("BarTime", barSchema);
 const Post = mongoose.model("Post", postSchema);
 const Comment = mongoose.model("Comment", commentSchema);
+const CheckIn = mongoose.model("CheckIn", checkInSchema);
 const User = mongoose.model("User", userSchema);
 
 const verifyToken = (req, res, next) => {
@@ -960,6 +976,156 @@ app.get('/bar/:barId', async (req, res) => {
     res.status(500).json({ message: "Error fetching bar" })
   }
 })
+
+// ========== CHECK-IN ROUTES ==========
+
+// create a check-in (when user has been at location for 15+ minutes)
+app.post("/checkin", verifyToken, async (req, res) => {
+  try {
+    const { barId, barName, latitude, longitude } = req.body;
+    
+    if (!barId || !barName || latitude === undefined || longitude === undefined) {
+      return res.status(400).json({ message: "Missing required fields" });
+    }
+
+    const user = await User.findById(req.userId);
+    if (!user) {
+      return res.status(404).json({ message: "User not found" });
+    }
+
+    // check if user already has an active check-in
+    if (user.currentCheckIn) {
+      const existingCheckIn = await CheckIn.findById(user.currentCheckIn);
+      if (existingCheckIn && existingCheckIn.isActive) {
+        return res.status(400).json({ message: "User already checked in to a location" });
+      }
+    }
+
+    // create new check-in
+    const checkIn = new CheckIn({
+      userId: req.userId,
+      username: user.username,
+      profilePicUrl: user.profilePicUrl || "",
+      barId,
+      barName,
+      latitude,
+      longitude,
+      checkedInAt: new Date(),
+      isActive: true
+    });
+
+    await checkIn.save();
+
+    // update user's current check-in
+    user.currentCheckIn = checkIn._id;
+    await user.save();
+
+    // create a post automatically
+    const postContent = `${user.username} has checked into ${barName}!`;
+    const newPost = new Post({
+      userId: new mongoose.Types.ObjectId(req.userId),
+      username: user.username,
+      content: postContent,
+      imageUrl: "",
+      profilePicUrl: user.profilePicUrl || "",
+      likes: 0,
+      likedBy: [],
+      createdAt: new Date()
+    });
+    await newPost.save();
+
+    res.json({ 
+      message: "Check-in successful", 
+      checkIn,
+      post: newPost
+    });
+  } catch (error) {
+    console.error("Error creating check-in:", error);
+    res.status(500).json({ message: "Error creating check-in", error: error.message });
+  }
+});
+
+// get all active check-ins for a specific bar
+app.get("/checkins/bar/:barId", async (req, res) => {
+  try {
+    const { barId } = req.params;
+    const checkIns = await CheckIn.find({ 
+      barId, 
+      isActive: true 
+    }).populate('userId', 'username profilePicUrl').sort({ checkedInAt: -1 });
+    
+    res.json(checkIns);
+  } catch (error) {
+    console.error("Error fetching check-ins:", error);
+    res.status(500).json({ message: "Error fetching check-ins" });
+  }
+});
+
+// get user's current check-in
+app.get("/checkins/user/:userId", async (req, res) => {
+  try {
+    const { userId } = req.params;
+    const user = await User.findById(userId);
+    
+    if (!user || !user.currentCheckIn) {
+      return res.json(null);
+    }
+
+    const checkIn = await CheckIn.findById(user.currentCheckIn);
+    res.json(checkIn);
+  } catch (error) {
+    console.error("Error fetching user check-in:", error);
+    res.status(500).json({ message: "Error fetching user check-in" });
+  }
+});
+
+// check out (remove check-in when user leaves location)
+app.delete("/checkin/:checkInId", verifyToken, async (req, res) => {
+  try {
+    const { checkInId } = req.params;
+    
+    const checkIn = await CheckIn.findById(checkInId);
+    if (!checkIn) {
+      return res.status(404).json({ message: "Check-in not found" });
+    }
+
+    // verify user owns this check-in
+    if (checkIn.userId.toString() !== req.userId) {
+      return res.status(403).json({ message: "Not authorized" });
+    }
+
+    // mark as inactive
+    checkIn.isActive = false;
+    checkIn.checkedOutAt = new Date();
+    await checkIn.save();
+
+    // remove from user's current check-in
+    const user = await User.findById(req.userId);
+    if (user && user.currentCheckIn && user.currentCheckIn.toString() === checkInId) {
+      user.currentCheckIn = null;
+      await user.save();
+    }
+
+    res.json({ message: "Checked out successfully" });
+  } catch (error) {
+    console.error("Error checking out:", error);
+    res.status(500).json({ message: "Error checking out" });
+  }
+});
+
+// get all active check-ins (for map display)
+app.get("/checkins/active", async (req, res) => {
+  try {
+    const checkIns = await CheckIn.find({ isActive: true })
+      .populate('userId', 'username profilePicUrl')
+      .sort({ checkedInAt: -1 });
+    
+    res.json(checkIns);
+  } catch (error) {
+    console.error("Error fetching active check-ins:", error);
+    res.status(500).json({ message: "Error fetching active check-ins" });
+  }
+});
 
 const PORT = process.env.PORT || 5000;
 app.listen(PORT, () => {

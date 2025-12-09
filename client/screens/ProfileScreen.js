@@ -87,9 +87,9 @@ export default function ProfileScreen() {
     }
 
     try {
-      const result = await ImagePicker.launchImageLibraryAsync({
+    const result = await ImagePicker.launchImageLibraryAsync({
         mediaTypes: ImagePicker.MediaTypeOptions.Images,
-        allowsEditing: true,
+      allowsEditing: true,
         aspect: [1, 1],
         quality: 0.8,
       });
@@ -165,19 +165,19 @@ export default function ProfileScreen() {
         <View style={styles.info}>
           <Text style={styles.username}>{profile.username}</Text>
           <Text style={styles.age}>Birthday: {profile.birthday}</Text>
-
+        
           <TouchableOpacity onPress={handleFriendPress}>
             <Text style={styles.friends}>
               {profile.friends?.length || 0} Friends
             </Text>
           </TouchableOpacity>
-
+        
           {/* LOG OUT BUTTON */}
           <TouchableOpacity onPress={handleLogout} style={styles.logoutButton}>
             <Text style={styles.logoutText}>Log Out</Text>
           </TouchableOpacity>
         </View>
-      </View>
+        </View>
 
       {/* -------- POSTS SECTION -------- */}
       <Text style={[styles.text, { textAlign: "center", marginTop: 20, marginBottom: 10 }]}>
@@ -196,15 +196,15 @@ export default function ProfileScreen() {
           <Text style={styles.emptyPostsText}>
             No posts yet. Create your first post!
           </Text>
-        </View>
+      </View>
       )}
-    </ScrollView>
+      </ScrollView>
   );
 }
 
 /* ---------- STYLES ---------- */
 const styles = StyleSheet.create({
-  container: {
+    container: {
     flex: 1,
     backgroundColor: "#0B0D17",
     padding: 20,

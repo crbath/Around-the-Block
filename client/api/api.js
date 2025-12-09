@@ -85,4 +85,20 @@ export const addFriend = (username) => api.post('/friends', { username });
 
 export const getAllUsers = () => api.get('/users');
 
+// ---- CHECK-IN API CALLS ---- //
+export const createCheckIn = (barId, barName, latitude, longitude) =>
+  api.post('/checkin', { barId, barName, latitude, longitude });
+
+export const getCheckInsByBar = (barId) =>
+  api.get(`/checkins/bar/${barId}`);
+
+export const getUserCheckIn = (userId) =>
+  api.get(`/checkins/user/${userId}`);
+
+export const checkOut = (checkInId) =>
+  api.delete(`/checkin/${checkInId}`);
+
+export const getActiveCheckIns = () =>
+  api.get('/checkins/active');
+
 export default api;

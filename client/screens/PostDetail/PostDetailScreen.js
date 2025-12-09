@@ -134,9 +134,9 @@ export default function PostDetailScreen({ route, navigation }) {
             {post.profilePicUrl ? (
               <Image source={{ uri: post.profilePicUrl }} style={styles.avatarImage} />
             ) : (
-              <View style={styles.avatar}>
-                <Text style={styles.avatarText}>{post.username ? post.username[0].toUpperCase() : '?'}</Text>
-              </View>
+            <View style={styles.avatar}>
+              <Text style={styles.avatarText}>{post.username ? post.username[0].toUpperCase() : '?'}</Text>
+            </View>
             )}
             <View>
               <Text style={styles.username}>{post.username}</Text>
