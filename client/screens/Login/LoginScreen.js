@@ -147,7 +147,7 @@ export default function LoginScreen({ navigation }) {
 
   return (
     <View style={styles.container}>
-      <Image source={require('../../assets/images/talking_ben.png')} style={styles.logo} />
+      <Image source={require('../../assets/images/atb-app-logo.png')} style={styles.logo} />
 
       <View style={styles.inputContainer}>
         <Text style={styles.label}>Username</Text>
