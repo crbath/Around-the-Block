@@ -1,8 +1,10 @@
-import React from 'react';
+import React, { useEffect } from 'react';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import { CommonActions } from '@react-navigation/native';
 import { Ionicons } from '@expo/vector-icons';
+// import LocationMonitorService from '../services/LocationMonitorService.js';
+// import AsyncStorage from '@react-native-async-storage/async-storage';
 import ActivitiesScreen from '../Activities/ActivitiesScreen';
 import FeedScreen from '../Feed/FeedScreen';
 import FriendsScreen from '../Friends/FriendsScreen';
@@ -66,6 +68,20 @@ function MapStackNavigator() {
 }
 
 export default function HomeScreen() {
+  // automatic location monitoring removed - check-in/check-out is now manual
+  // useEffect(() => {
+  //   const startGlobalMonitoring = async () => {
+  //     const token = await AsyncStorage.getItem('token');
+  //     if (token) {
+  //       LocationMonitorService.startMonitoring([]);
+  //     }
+  //   };
+  //   startGlobalMonitoring();
+  //   return () => {
+  //     // LocationMonitorService.stopMonitoring();
+  //   };
+  // }, []);
+
   return (
     <Tab.Navigator
       initialRouteName='Maps'

@@ -13,15 +13,23 @@ export default {
     "ios": {
       "supportsTablet": true,
       "infoPlist": {
-        "NSMicrophoneUsageDescription": "This app needs access to microphone for voice recording features in games and activities."
+        "NSMicrophoneUsageDescription": "This app needs access to microphone for voice recording features in games and activities.",
+        "NSLocationAlwaysAndWhenInUseUsageDescription": "This app needs access to your location to automatically check you into locations and show your friends where you are.",
+        "NSLocationAlwaysUsageDescription": "This app needs access to your location to automatically check you into locations even when the app is in the background.",
+        "NSLocationWhenInUseUsageDescription": "This app needs access to your location to automatically check you into locations.",
+        "UIBackgroundModes": ["location"]
       },
       "config": {
         "googleMapsApiKey": process.env.GOOGLE_MAPS_API_KEY
       }
     },
     "android": {
+      "package": "com.anonymous.client",
       "permissions": [
-        "android.permission.RECORD_AUDIO"
+        "android.permission.RECORD_AUDIO",
+        "android.permission.ACCESS_FINE_LOCATION",
+        "android.permission.ACCESS_COARSE_LOCATION",
+        "android.permission.ACCESS_BACKGROUND_LOCATION"
       ],
       "config": {
         "googleMapsApiKey": process.env.GOOGLE_MAPS_API_KEY
@@ -50,6 +58,14 @@ export default {
           "dark": {
             "backgroundColor": "#000000"
           }
+        }
+      ],
+      [
+        "expo-location",
+        {
+          "locationAlwaysAndWhenInUsePermission": "This app needs access to your location to automatically check you into locations and show your friends where you are.",
+          "locationAlwaysPermission": "This app needs access to your location to automatically check you into locations even when the app is in the background.",
+          "locationWhenInUsePermission": "This app needs access to your location to automatically check you into locations."
         }
       ]
     ],

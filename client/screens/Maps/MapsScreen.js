@@ -1,10 +1,10 @@
-import React, { useEffect, useState, useRef } from 'react';
+import React, { useEffect, useState, useRef, useMemo } from 'react';
 
-import { View, Text, StyleSheet, Alert, Modal, TouchableWithoutFeedback, TouchableOpacity, Image } from 'react-native';
+import { View, Text, StyleSheet, Alert, Modal, TouchableWithoutFeedback, TouchableOpacity, Image, ScrollView } from 'react-native';
 
 import MapView, { Marker } from 'react-native-maps';
 
-import api from '../../api/api';
+import api, { getCheckInsByBar, getActiveCheckIns, createCheckIn, checkOut, getUserCheckIn } from '../../api/api';
 
 import * as Location from 'expo-location'
 
@@ -13,6 +13,8 @@ import axios from 'axios'
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
 import WaitTimeSlider from '../../components/feature/WaitTimeSlider';
+
+// import LocationMonitorService from '../../services/LocationMonitorService.js'; // removed - using manual check-in/out
 
 
 
@@ -32,7 +34,50 @@ export default function MapsScreen({ navigation }) {
 
   const [loading, setLoading] = useState(false)
 
+  const [activeCheckIns, setActiveCheckIns] = useState([])
+
+  const [barCheckIns, setBarCheckIns] = useState([])
+
   const mapRef = useRef(null)
+  const barsFetchedRef = useRef(false) // track if bars have been fetched
+  const barsRef = useRef([]) // preserve bars across renders
+
+  // user's current check-in status
+  const [currentCheckIn, setCurrentCheckIn] = React.useState(null);
+
+  // TEST MODE: manual check-in function for testing without being at location
+  // const handleTestCheckIn = async () => {
+  //   if (!selectedBar) {
+  //     Alert.alert("Test Check-In", "Please select a bar first by tapping on a bar marker");
+  //     return;
+  //   }
+
+  //   try {
+  //     const barId = selectedBar.id?.toString() || selectedBar.barId?.toString();
+  //     const barName = selectedBar.name || selectedBar.barName;
+      
+  //     const response = await createCheckIn(
+  //       barId,
+  //       barName,
+  //       selectedBar.latitude,
+  //       selectedBar.longitude
+  //     );
+      
+  //     Alert.alert("Test Check-In", `Successfully checked into ${barName}!`);
+      
+  //     // refresh check-ins
+  //     await fetchActiveCheckIns();
+  //     if (selectedBar) {
+  //       await fetchBarCheckIns(barId);
+  //     }
+      
+  //     // reload profile if on profile screen
+  //     // (this will be handled by the profile screen's useFocusEffect)
+  //   } catch (error) {
+  //     console.error("Test check-in error:", error);
+  //     Alert.alert("Test Check-In Error", error.response?.data?.message || error.message);
+  //   }
+  // };
 
   function getDistanceFromBar(lat1, long1, lat2, long2) {
 
@@ -188,8 +233,9 @@ export default function MapsScreen({ navigation }) {
   useEffect(() => {
 
     if (!location) return;
-
-
+    
+    // only fetch bars once, or if bars array is empty
+    if (barsFetchedRef.current && bars.length > 0) return;
 
     const fetchBars = async () => {
 
@@ -243,13 +289,18 @@ export default function MapsScreen({ navigation }) {
 
         }))
 
-
-
-        setBars(nodes)
+        // only update bars if we got results, preserve existing bars otherwise
+        if (nodes && nodes.length > 0) {
+          setBars(nodes)
+          barsRef.current = nodes // also store in ref
+          barsFetchedRef.current = true
+        }
 
       } catch (err) {
 
         setErrorMessage("Error grabbing bars")
+        // don't clear bars on error - keep existing bars
+        console.error("Error fetching bars:", err)
 
       }
 
@@ -257,14 +308,136 @@ export default function MapsScreen({ navigation }) {
 
     fetchBars()
 
-  }, [location])
+  }, [location, bars.length])
 
 
   useEffect(() => {
     if (selectedBar) {
       fetchAverageTime(selectedBar.id)
+      fetchBarCheckIns(selectedBar.id)
+      fetchUserCheckIn() // refresh user's check-in status when bar is selected
     }
   }, [selectedBar])
+
+  // fetch active check-ins for all bars
+  useEffect(() => {
+    fetchActiveCheckIns()
+    const interval = setInterval(fetchActiveCheckIns, 30000) // refresh every 30 seconds
+    return () => clearInterval(interval)
+  }, [])
+
+  // fetch user's current check-in status
+  useEffect(() => {
+    fetchUserCheckIn();
+  }, [])
+
+  const fetchUserCheckIn = async () => {
+    try {
+      const userId = await AsyncStorage.getItem('userId');
+      if (userId) {
+        const response = await getUserCheckIn(userId);
+        setCurrentCheckIn(response.data);
+      }
+    } catch (err) {
+      console.error('Error fetching user check-in:', err);
+      setCurrentCheckIn(null);
+    }
+  }
+
+  const fetchActiveCheckIns = async () => {
+    try {
+      const res = await getActiveCheckIns()
+      setActiveCheckIns(res.data || [])
+    } catch (error) {
+      console.error('Error fetching active check-ins:', error)
+      // don't clear activeCheckIns on error - keep existing data
+      // setActiveCheckIns([]) // commented out to preserve existing check-ins
+    }
+  }
+
+  const fetchBarCheckIns = async (barId) => {
+    try {
+      const res = await getCheckInsByBar(barId)
+      setBarCheckIns(res.data || [])
+    } catch (error) {
+      console.error('Error fetching bar check-ins:', error)
+      setBarCheckIns([])
+    }
+  }
+
+  // manual check-in function
+  const handleCheckIn = async () => {
+    if (!selectedBar) {
+      Alert.alert("Error", "Please select a bar first");
+      return;
+    }
+
+    // check if user is within distance of the bar
+    if (!isNearBar()) {
+      Alert.alert("Too Far Away", "You must be within 100 meters of the bar to check in.");
+      return;
+    }
+
+    try {
+      const barId = selectedBar.id?.toString() || selectedBar.barId?.toString();
+      const barName = selectedBar.name || selectedBar.barName;
+      
+      const response = await createCheckIn(
+        barId,
+        barName,
+        selectedBar.latitude,
+        selectedBar.longitude
+      );
+      
+      setCurrentCheckIn(response.data.checkIn);
+      Alert.alert("Success", `Checked into ${barName}!`);
+      
+      // refresh check-ins (but preserve bars array)
+      await fetchActiveCheckIns();
+      await fetchBarCheckIns(barId);
+      await fetchUserCheckIn();
+      
+      // ensure bars are still set (defensive check)
+      if (bars.length === 0 && barsFetchedRef.current === false) {
+        // if bars were somehow cleared, refetch them
+        barsFetchedRef.current = false;
+      }
+    } catch (error) {
+      console.error("Check-in error:", error);
+      Alert.alert("Error", error.response?.data?.message || error.message);
+    }
+  }
+
+  // manual check-out function
+  const handleCheckOut = async () => {
+    if (!currentCheckIn || !currentCheckIn._id) {
+      Alert.alert("Error", "You are not currently checked in anywhere");
+      return;
+    }
+
+    try {
+      await checkOut(currentCheckIn._id);
+      setCurrentCheckIn(null);
+      Alert.alert("Success", "Checked out successfully!");
+      
+      // refresh check-ins (but preserve bars array)
+      await fetchActiveCheckIns();
+      if (selectedBar) {
+        const barId = selectedBar.id?.toString() || selectedBar.barId?.toString();
+        await fetchBarCheckIns(barId);
+      }
+      await fetchUserCheckIn();
+      
+      // ensure bars are still set (defensive check)
+      if (bars.length === 0 && barsFetchedRef.current === false) {
+        // if bars were somehow cleared, refetch them
+        barsFetchedRef.current = false;
+      }
+    } catch (error) {
+      console.error("Check-out error:", error);
+      Alert.alert("Error", error.response?.data?.message || error.message);
+    }
+  }
 
 
   useEffect(() => {
@@ -335,44 +508,66 @@ export default function MapsScreen({ navigation }) {
 
           </Marker>
 
-          {bars.map(bar => (
+          {(bars && bars.length > 0 ? bars : barsRef.current).map((bar, index) => {
+            if (!bar || !bar.id || !bar.latitude || !bar.longitude) return null;
+            
+            const barId = bar.id?.toString() || bar.barId?.toString()
+            const checkInsAtBar = (activeCheckIns || []).filter(ci => ci && ci.barId === barId && ci.isActive)
+            
+            return (
+              <Marker
+                key={`bar-${bar.id}`}
+                identifier={`bar-${bar.id}`}
+                coordinate={{ latitude: bar.latitude, longitude: bar.longitude }}
+                pinColor="purple"
+                tracksViewChanges={false}
+                onPress={async () => {
+                  setSelectedBar(bar);
+                  setShowModal(true);
+                  try {
+                    await api.post("/create-bar-if-needed", {
+                      barId: bar.id, barName: bar.name, latitude: bar.latitude, longitude: bar.longitude
+                    });
+                  }
+                  catch (err) {
 
-            <Marker
-
-              key={bar.id}
-
-              coordinate={{ latitude: bar.latitude, longitude: bar.longitude }}
-
-              pinColor="purple"
-
-              tracksViewChanges={false}
-
-              onPress={async () => {
-                setSelectedBar(bar);
-                setShowModal(true);
-                try {
-                  await api.post("/create-bar-if-needed", {
-                    barId: bar.id, barName: bar.name, latitude: bar.latitude, longitude: bar.longitude
-                  });
-                }
-                catch (err) {
-
-                }
-              }}
-
-            >
-
-              <View style={{ alignItems: "center" }}>
-
-                <Text style={{ backgroundColor: "rgba(104, 102, 102, 0.6)", color: "white", paddingHorizontal: 6, paddingVertical: 2, borderRadius: 5, fontSize: 12, marginBottom: 5 }}>{bar.name}</Text>
-
-                <Image source={require("../../assets/images/purple-pin.png")} style={{ width: 50, height: 50 }} resizeMode="contain" />
-
-              </View>
-
-            </Marker>
-
-          ))}
+                  }
+                }}
+              >
+                <View style={{ alignItems: "center" }}>
+                  <Text style={{ backgroundColor: "rgba(104, 102, 102, 0.6)", color: "white", paddingHorizontal: 6, paddingVertical: 2, borderRadius: 5, fontSize: 12, marginBottom: 5 }}>{bar.name || 'Bar'}</Text>
+                  
+                  {/* show checked-in users count */}
+                  {checkInsAtBar.length > 0 && (
+                    <View style={{ backgroundColor: "rgba(76, 175, 80, 0.8)", borderRadius: 12, paddingHorizontal: 6, paddingVertical: 2, marginBottom: 3 }}>
+                      <Text style={{ color: "white", fontSize: 10, fontWeight: 'bold' }}>
+                        {checkInsAtBar.length} checked in
+                      </Text>
+                    </View>
+                  )}
+                  
+                  <Image source={require("../../assets/images/purple-pin.png")} style={{ width: 50, height: 50 }} resizeMode="contain" />
+                  
+                  {/* show user avatars for checked-in users */}
+                  {checkInsAtBar.length > 0 && checkInsAtBar.length <= 3 && (
+                    <View style={{ flexDirection: 'row', marginTop: 2, gap: 2 }}>
+                      {checkInsAtBar.slice(0, 3).map((checkIn, idx) => (
+                        <View key={`checkin-${checkIn._id || idx}`} style={{ width: 20, height: 20, borderRadius: 10, backgroundColor: '#4CAF50', borderWidth: 1, borderColor: 'white' }}>
+                          {checkIn.profilePicUrl ? (
+                            <Image source={{ uri: checkIn.profilePicUrl }} style={{ width: 18, height: 18, borderRadius: 9 }} />
+                          ) : (
+                            <Text style={{ color: 'white', fontSize: 10, textAlign: 'center', lineHeight: 18 }}>
+                              {checkIn.username?.[0]?.toUpperCase() || '?'}
+                            </Text>
+                          )}
+                        </View>
+                      ))}
+                    </View>
+                  )}
+                </View>
+              </Marker>
+            )
+          })}
 
 
 
@@ -435,6 +630,61 @@ export default function MapsScreen({ navigation }) {
 
               <Text style={[{ fontSize: 20, marginBottom: 10, textAlign: 'center', color: '#5B4DB7', paddingTop: 20 }]}>Estimated Wait Time: {getWaitTimeLabel(avgTime ? avgTime : 0)}</Text>
 
+              {/* check-in/check-out button */}
+              <View style={{ marginBottom: 15, width: '100%', alignItems: 'center' }}>
+                {currentCheckIn && currentCheckIn.isActive && currentCheckIn.barId === (selectedBar?.id?.toString() || selectedBar?.barId?.toString()) ? (
+                  <TouchableOpacity 
+                    style={{ padding: 12, backgroundColor: '#FF6B6B', borderRadius: 8, width: '80%' }} 
+                    onPress={handleCheckOut}
+                  >
+                    <Text style={{ color: 'white', fontSize: 16, fontWeight: 'bold', textAlign: 'center' }}>
+                      Check Out
+                    </Text>
+                  </TouchableOpacity>
+                ) : (
+                  <TouchableOpacity 
+                    style={{ 
+                      padding: 12, 
+                      backgroundColor: isNearBar() ? '#4CAF50' : '#9E9E9E', 
+                      borderRadius: 8, 
+                      width: '80%',
+                      opacity: isNearBar() ? 1 : 0.6
+                    }} 
+                    onPress={handleCheckIn}
+                    disabled={!isNearBar()}
+                  >
+                    <Text style={{ color: 'white', fontSize: 16, fontWeight: 'bold', textAlign: 'center' }}>
+                      {isNearBar() ? 'Check In' : 'Too Far Away'}
+                    </Text>
+                  </TouchableOpacity>
+                )}
+              </View>
+
+              {/* show checked-in users */}
+              {barCheckIns.length > 0 && (
+                <View style={{ marginBottom: 15, width: '100%' }}>
+                  <Text style={{ fontSize: 16, fontWeight: 'bold', color: '#7EA0FF', marginBottom: 8, textAlign: 'center' }}>
+                    Checked In ({barCheckIns.length})
+                  </Text>
+                  <ScrollView style={{ maxHeight: 100 }}>
+                    {barCheckIns.map((checkIn, idx) => (
+                      <View key={idx} style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 6, paddingHorizontal: 10 }}>
+                        {checkIn.profilePicUrl ? (
+                          <Image source={{ uri: checkIn.profilePicUrl }} style={{ width: 30, height: 30, borderRadius: 15, marginRight: 8 }} />
+                        ) : (
+                          <View style={{ width: 30, height: 30, borderRadius: 15, backgroundColor: '#5B4DB7', justifyContent: 'center', alignItems: 'center', marginRight: 8 }}>
+                            <Text style={{ color: 'white', fontSize: 14, fontWeight: 'bold' }}>
+                              {checkIn.username?.[0]?.toUpperCase() || '?'}
+                            </Text>
+                          </View>
+                        )}
+                        <Text style={{ color: '#fff', fontSize: 14 }}>{checkIn.username}</Text>
+                      </View>
+                    ))}
+                  </ScrollView>
+                </View>
+              )}
+
 
 
               <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center' }}>
@@ -452,6 +702,14 @@ export default function MapsScreen({ navigation }) {
                   <Text style={{ color: 'white' }}>Submit</Text>
 
                 </TouchableOpacity>
+
+                {/* TEST MODE: Manual check-in button for testing without being at location */}
+                {/* <TouchableOpacity 
+                  style={{ padding: 10, backgroundColor: '#4CAF50', margin: 10, borderRadius: 5 }} 
+                  onPress={handleTestCheckIn}
+                >
+                  <Text style={{ color: 'white', fontSize: 12 }}>🧪 Test Check-In (Debug)</Text>
+                </TouchableOpacity> */}
 
               </View>
 

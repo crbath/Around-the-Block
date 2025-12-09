@@ -3,7 +3,8 @@ import { View, Text, StyleSheet, Image, TouchableOpacity, ActivityIndicator, Scr
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import * as ImagePicker from 'expo-image-picker'
 import { useNavigation, useFocusEffect } from '@react-navigation/native'
-import { getProfile, updateProfile, getUserPosts } from '../../api/api'
+import { getProfile, updateProfile, getUserPosts, getUserCheckIn } from '../../api/api'
+// import LocationMonitorService from '../../services/LocationMonitorService.js'
 import { uploadProfilePicture } from '../../utils/firebase'
 import PostCard from '../../components/feature/PostCard'
 
@@ -11,6 +12,7 @@ export default function ProfileScreen() {
   const [profile, setProfile] = useState(null)
   const [posts, setPosts] = useState([])
   const [loading, setLoading] = useState(true)
+  const [currentCheckIn, setCurrentCheckIn] = useState(null)
   const navigation = useNavigation();
 
   useEffect(() => { fetchProfile() }, [])
@@ -20,9 +22,24 @@ export default function ProfileScreen() {
     React.useCallback(() => {
       if (profile) {
         fetchUserPosts();
+        fetchUserCheckIn();
       }
     }, [profile])
   )
+
+  // fetch user's current check-in status
+  const fetchUserCheckIn = async () => {
+    try {
+      const userId = await AsyncStorage.getItem('userId');
+      if (userId) {
+        const response = await getUserCheckIn(userId);
+        setCurrentCheckIn(response.data);
+      }
+    } catch (err) {
+      console.error('Error fetching check-in:', err);
+      setCurrentCheckIn(null);
+    }
+  }
 
   const fetchProfile = async () => {
     try {
@@ -37,6 +54,8 @@ export default function ProfileScreen() {
         await AsyncStorage.setItem('userId', profileData._id.toString())
         // fetch posts after profile is loaded
         await fetchUserPosts(profileData._id.toString())
+        // fetch check-in status
+        await fetchUserCheckIn()
       }
     } catch (err) {
       console.error('Error fetching profile:', err)
@@ -159,6 +178,13 @@ export default function ProfileScreen() {
                 <Text style={styles.friends}>{profile.friends?.length || 0} Friends</Text>
               </TouchableOpacity>
 
+              {/* CURRENT LOCATION STATUS */}
+              {currentCheckIn && currentCheckIn.isActive && (
+                <View style={styles.checkInStatus}>
+                  <Text style={styles.checkInText}>📍 Currently at {currentCheckIn.barName}</Text>
+                </View>
+              )}
+
               {/* LOG OUT BUTTON */}
               <TouchableOpacity onPress={handleLogout} style={styles.logoutButton}>
                 <Text style={styles.logoutText}>Log Out</Text>
@@ -212,5 +238,17 @@ const styles = StyleSheet.create({
     color: 'white',
     fontWeight: 'bold',
     fontSize: 16,
+  },
+  checkInStatus: {
+    marginTop: 8,
+    paddingVertical: 6,
+    paddingHorizontal: 12,
+    backgroundColor: '#4CAF50',
+    borderRadius: 8,
+  },
+  checkInText: {
+    color: 'white',
+    fontSize: 14,
+    fontWeight: '600',
   },
 });

@@ -87,30 +87,30 @@ export default function PostCard({ post, navigation }) {
     <View style={styles.card}>
       {/* clickable header/content area */}
       <TouchableOpacity onPress={handlePostPress} activeOpacity={0.8}>
-        {/* header section with user profile icon and info */}
-        <View style={styles.header}>
+      {/* header section with user profile icon and info */}
+      <View style={styles.header}>
           {/* profile circle with first letter of username or profile pic */}
           {post.profilePicUrl ? (
             <Image source={{ uri: post.profilePicUrl }} style={styles.avatarImage} />
           ) : (
-            <View style={styles.avatar}>
-              <Text style={styles.avatarText}>
-                {post.username ? post.username[0].toUpperCase() : '?'}
-              </Text>
-            </View>
-          )}
-          {/* username and timestamp (?) */}
-          <View>
-            <Text style={styles.username}>{post.username}</Text>
-            <Text style={styles.timestamp}>{post.time}</Text>
-          </View>
+        <View style={styles.avatar}>
+          <Text style={styles.avatarText}>
+            {post.username ? post.username[0].toUpperCase() : '?'}
+          </Text>
         </View>
+          )}
+        {/* username and timestamp (?) */}
+        <View>
+          <Text style={styles.username}>{post.username}</Text>
+          <Text style={styles.timestamp}>{post.time}</Text>
+        </View>
+      </View>
 
-        {/* post text content - only show if post has text */}
-        {post.text && <Text style={styles.text}>{post.text}</Text>}
+      {/* post text content - only show if post has text */}
+      {post.text && <Text style={styles.text}>{post.text}</Text>}
 
-        {/* post image - only show if post has an image */}
-        {post.image && <Image source={{ uri: post.image }} style={styles.image} />}
+      {/* post image - only show if post has an image */}
+      {post.image && <Image source={{ uri: post.image }} style={styles.image} />}
       </TouchableOpacity>
 
       {/* footer with like and comment buttons (important: separate from card's onPress) */}
@@ -142,7 +142,7 @@ export default function PostCard({ post, navigation }) {
             } else {
               handleComment();
             }
-          }}
+          }} 
           style={styles.button}
           activeOpacity={0.7}
         >
