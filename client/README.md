@@ -137,5 +137,6 @@ TAYLOR:
    - Image Store & Meta Int.
       - Social Media login framework
    - Bar Checkin Feature (Map and Profile)
+     - location logic included
    - Liking and Commenting
    - Firebase Integration for Images
